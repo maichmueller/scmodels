@@ -67,16 +67,16 @@ class SCM:
         >>> functional_map = {
         ...     "X_zero": (
         ...         [],
-        ...         AffineFunctional(1, 0),
+        ...         Affine(1, 0),
         ...         NoiseGenerator("normal", scale=0.3)
         ...     ),
         ...     "X_1": (
         ...         ["X_zero"],
-        ...         AffineFunctional(1, 1, 1),
+        ...         Affine(1, 1, 1),
         ...         NoiseGenerator("normal", scale=1)),
         ...     "Y": (
         ...         ["X_zero", "X_1"],
-        ...         PolynomialFunctional([0, 1], [0, 2], [0, 0, -1]),
+        ...         Polynomial([0, 1], [0, 2], [0, 0, -1]),
         ...         NoiseGenerator("normal", scale=2),
         ...     ),
         ... }
@@ -113,17 +113,17 @@ class SCM:
         self.roots: List = []
         self.nr_variables: int = len(functional_map)
 
-        self.vars: np.ndarray = np.array(list(functional_map.keys()))
+        self.var: np.ndarray = np.array(list(functional_map.keys()))
         # supply any variable name, that has not been assigned a different TeX name, with itself as TeX name.
         # This prevents missing labels in the plot method.
         if variable_tex_names is not None:
-            for name in self.vars:
+            for name in self.var:
                 if name not in variable_tex_names:
                     variable_tex_names[name] = name
             # the variable names as they can be used by the plot function to draw the names in TeX mode.
-            self.vars_draw_dict: Dict = variable_tex_names
+            self.var_draw_dict: Dict = variable_tex_names
         else:
-            self.vars_draw_dict = dict()
+            self.var_draw_dict = dict()
 
         # the attribute list that any given node in the graph has.
         self.function_key, self.noise_key = "functional", "noise"
@@ -445,7 +445,7 @@ class SCM:
             pos = graphviz_layout(self.graph, prog="dot")
         plt.title(self.scm_name)
         if draw_labels:
-            labels = self.vars_draw_dict
+            labels = self.var_draw_dict
         else:
             labels = {}
         plt.figure(figsize=figsize, dpi=dpi)
@@ -478,14 +478,14 @@ class SCM:
         """
         lines = [
             f"Structural Causal Model of {self.nr_variables} variables: "
-            + ", ".join(self.vars),
+            + ", ".join(self.var),
             f"Following variables are actively intervened on: {list(self.interventions_backup_attr.keys())}",
             "Current Functional Functions are:",
         ]
-        max_var_space = max([len(var_name) for var_name in self.vars])
+        max_var_space = max([len(var_name) for var_name in self.var])
         for node in self.graph.nodes:
-            parents_vars = [pred for pred in self.graph.predecessors(node)]
-            line = f"{str(node).rjust(max_var_space)} := {self.graph.nodes[node][self.function_key].str(parents_vars)}"
+            parents_var = [pred for pred in self.graph.predecessors(node)]
+            line = f"{str(node).rjust(max_var_space)} := {self.graph.nodes[node][self.function_key].str(parents_var)}"
             # add explanation to the noise term
             line += f"\t [ N := {str(self.graph.nodes[node][self.noise_key])} ]"
             lines.append(line)
@@ -556,18 +556,18 @@ class SCM:
                 yield node
             return
         visited_nodes: Set = set()
-        vars_causal_priority: Dict = defaultdict(int)
+        var_causal_priority: Dict = defaultdict(int)
         queue = deque([var for var in self._filter_variable_names(variables)])
         while queue:
             nn = queue.popleft()
             if nn not in visited_nodes:
                 for parent in self.graph.predecessors(nn):
-                    vars_causal_priority[parent] = max(
-                        vars_causal_priority[parent], vars_causal_priority[nn] + 1
+                    var_causal_priority[parent] = max(
+                        var_causal_priority[parent], var_causal_priority[nn] + 1
                     )
                     queue.append(parent)
                 visited_nodes.add(nn)
-        for key, _ in sorted(vars_causal_priority.items(), key=lambda x: -x[1]):
+        for key, _ in sorted(var_causal_priority.items(), key=lambda x: -x[1]):
             yield key
 
     def _hierarchy_pos(

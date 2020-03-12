@@ -1,4 +1,5 @@
-from scm import AffineFunctional, PolynomialFunctional, NoiseGenerator, SCM
+from scm.functionals import *
+from scm.scm import SCM
 import numpy as np
 import pandas as pd
 from numpy.polynomial.polynomial import Polynomial
@@ -28,13 +29,6 @@ def noise(n, seed=0):
     return np.random.default_rng(seed).standard_normal(n)
 
 
-def test_linear_functional():
-    func = AffineFunctional(0, 1, 2, 3)
-    input_args = np.array([1, 2]), np.array([2, 4]), np.array([3, 6])
-
-    assert (func(np.array([1, 1]), *input_args) == np.array([15, 29])).all()
-
-
 def test_scm_build():
     cn = build_scm_linandpoly()
     nodes_in_graph = list(cn.graph.nodes)
@@ -61,7 +55,7 @@ def test_scm_intervention():
         {
             "X_3": {
                 "parents": ["X_0", "Y"],
-                "functional": AffineFunctional(1, 0, 3.3, 3.3),
+                "functional": Affine(1, 0, 3.3, 3.3),
                 "noise": NoiseGenerator("t", df=1, source="scipy", seed=0),
             }
         }

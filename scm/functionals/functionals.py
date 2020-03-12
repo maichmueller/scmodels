@@ -22,7 +22,7 @@ class Functional(ABC):
 
     def __init__(
         self,
-        vars: Collection[Hashable],
+        var: Collection[Hashable],
         allow_noise: bool = True,
         additive_noise: bool = True,
         is_argument_noise: bool = False,
@@ -48,7 +48,7 @@ class Functional(ABC):
         self.has_named_args = False
         # the positions of the argument names.
         self.args_to_position: Dict[Hashable, int] = dict()
-        self.set_names_for_args(vars)
+        self.set_names_for_args(var)
         # whether the functional is a concatenation, addition, multiplication etc. of other functionals
         self.is_elemental = is_elemental
 
@@ -243,7 +243,7 @@ class AddFunctional(Functional):
         v_names = self.func1.get_arg_names() & (
             self.func2.get_arg_names()
         )  # & = set intersection
-        super().__init__(vars=v_names, is_elemental=False)
+        super().__init__(var=v_names, is_elemental=False)
 
     def __call__(self, noise, *args, **kwargs):
         return self.func1(noise, *args, **kwargs) + self.func2(noise, *args, **kwargs)
@@ -252,7 +252,7 @@ class AddFunctional(Functional):
         if self.func1.has_named_args and self.func2.has_named_args:
             return len(self.get_arg_names())
 
-    def function_str(self, variable_names: Optional[Collection[str]] = None):
+    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
         return (
             self.func1.function_str(variable_names)
             + " + "
@@ -279,7 +279,7 @@ class SubFunctional(Functional):
         else:
             return len(self.assign1) + len(self.assign2)
 
-    def function_str(self, variable_names: Optional[Collection[str]] = None):
+    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
         return (
             self.assign1.function_str(variable_names)
             + " - "
@@ -306,7 +306,7 @@ class MulFunctional(Functional):
         else:
             return len(self.assign1) + len(self.assign2)
 
-    def function_str(self, variable_names: Optional[Collection[str]] = None):
+    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
         a1_string = self.assign1.function_str(variable_names)
         if self.assign1.is_elemental:
             a1_string = "(" + a1_string + ")"
@@ -337,7 +337,7 @@ class DivFunctional(Functional):
         else:
             return len(self.assign1) + len(self.assign2)
 
-    def function_str(self, variable_names: Optional[Collection[str]] = None):
+    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
         a1_string = self.assign1.function_str(variable_names)
         if self.assign1.is_elemental:
             a1_string = "(" + a1_string + ")"

@@ -37,6 +37,44 @@ class Constant(Functional):
         return str(self.const_value)
 
 
+class Affine(Functional):
+    r"""
+    The affine Functional function of the form:
+        f(X_S, N) = offset + \sum_{i \in S} a_i * X_i + noise_coeff * N
+    """
+
+    def __init__(
+        self,
+        offset: float = 0.0,
+        *coefficients,
+        var: Optional[Collection[Hashable]] = None,
+        **base_kwargs,
+    ):
+        self.offset = offset
+        self.coefficients = np.asarray(coefficients)
+
+        if var is None:
+            var = tuple(str(i) for i in range(len(coefficients)))
+        base_kwargs.update(dict(var=var))
+        super().__init__(**base_kwargs)
+
+    @Functional.call_arg_handler
+    def __call__(self, *args, **kwargs):
+        return self.offset + self.coefficients @ args
+
+    def __len__(self):
+        return 1 + len(self.args_to_position)
+
+    def function_str(self, variable_names=None):
+        rep = ""
+        if self.offset != 0:
+            rep += str(round(self.offset, 2))
+        for i, c in enumerate(self.coefficients):
+            if c != 0:
+                rep += f" + {round(c, 2)} {variable_names[i + 1]}"
+        return rep
+
+
 class Power(Functional):
     def __init__(self, exponent: float, **base_kwargs):
         self.exponent: float = exponent

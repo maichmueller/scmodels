@@ -5,7 +5,7 @@ from numpy.polynomial import polynomial
 from typing import List, Collection, Union, Optional
 
 
-class PolynomialFunctional(Functional):
+class Polynomial(Functional):
     r"""
     A polynomial functional function of the form:
 
