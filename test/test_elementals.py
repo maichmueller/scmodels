@@ -5,7 +5,7 @@ def test_identity():
     ident = Identity(var=["X"])
     arg = np.arange(20).reshape(20, 1)
     assert (ident(arg) == arg).all()
-    assert ident.get_arg_names() == set(["X"])
+    assert ident.arg_names() == set(["X"])
 
 
 def test_constant():
@@ -19,7 +19,7 @@ def test_affine():
     affine = Affine(2, 3, -1, var=["X", "Y"])
     arg = np.arange(40).reshape(20, 2)
     expected = 2 + arg[:, 0] * 3 + arg[:, 1] * (-1)
-    assert (affine(arg) == expected).all()
+    assert (affine(arg[:, 0], arg[:, 1]) == expected).all()
 
 
 def test_power():

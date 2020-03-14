@@ -1,4 +1,4 @@
-from .functionals import AffineFunctional, Functional
+from .functionals import Affine, Functional
 from .noise import Noise
 
 import numpy as np

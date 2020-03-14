@@ -25,7 +25,7 @@ class Polynomial(Functional):
         return sum((poly(arg) for poly, arg in zip(self.polynomials, args)))
 
     def __len__(self):
-        return len(self.get_arg_names())
+        return len(self.arg_names())
 
     def function_str(self, variable_names: Optional[Collection[str]] = None):
         functional = []

@@ -1,4 +1,4 @@
-from .functionals import Functional, Functional
+from .functionals import Functional
 
 from scipy.special import expit
 from typing import Callable, Optional, Collection, Hashable
@@ -19,4 +19,4 @@ class Sigmoid(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"sigmoid({list(self.get_arg_names())[0]})"
+        return f"sigmoid({list(self.arg_names())[0]})"

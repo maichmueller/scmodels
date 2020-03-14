@@ -17,7 +17,7 @@ class Identity(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return list(self.get_arg_names())[0]
+        return list(self.arg_names())[0]
 
 
 class Constant(Functional):
@@ -31,7 +31,7 @@ class Constant(Functional):
         return np.ones_like(arg) * self.const_value
 
     def __len__(self):
-        return len(self.get_arg_names())
+        return len(self.arg_names())
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
         return str(self.const_value)
@@ -47,15 +47,12 @@ class Affine(Functional):
         self,
         offset: float = 0.0,
         *coefficients,
-        var: Optional[Collection[Hashable]] = None,
         **base_kwargs,
     ):
         self.offset = offset
         self.coefficients = np.asarray(coefficients)
-
-        if var is None:
-            var = tuple(str(i) for i in range(len(coefficients)))
-        base_kwargs.update(dict(var=var))
+        # add the number of variables to the var names list if they haven't already been supplied
+        base_kwargs["var"] = base_kwargs.pop("var", len(self.coefficients))
         super().__init__(**base_kwargs)
 
     @Functional.call_arg_handler
@@ -89,7 +86,7 @@ class Power(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"{list(self.get_arg_names())[0]} ** {self.exponent}"
+        return f"{list(self.arg_names())[0]} ** {self.exponent}"
 
 
 class Root(Functional):
@@ -112,7 +109,7 @@ class Root(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"{self.ordinal}-root({list(self.get_arg_names())[0]})"
+        return f"{self.ordinal}-root({list(self.arg_names())[0]})"
 
 
 class Exp(Functional):
@@ -132,7 +129,7 @@ class Exp(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"exp({list(self.get_arg_names())[0]})"
+        return f"exp({list(self.arg_names())[0]})"
 
 
 class Log(Functional):
@@ -152,7 +149,7 @@ class Log(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"exp({list(self.get_arg_names())[0]})"
+        return f"exp({list(self.arg_names())[0]})"
 
 
 class Sin(Functional):
@@ -168,7 +165,7 @@ class Sin(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"sin({list(self.get_arg_names())[0]})"
+        return f"sin({list(self.arg_names())[0]})"
 
 
 class Cos(Functional):
@@ -184,7 +181,7 @@ class Cos(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"cos({list(self.get_arg_names())[0]})"
+        return f"cos({list(self.arg_names())[0]})"
 
 
 class Tan(Functional):
@@ -200,7 +197,7 @@ class Tan(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"tan({list(self.get_arg_names())[0]})"
+        return f"tan({list(self.arg_names())[0]})"
 
 
 class Arcsin(Functional):
@@ -216,7 +213,7 @@ class Arcsin(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"arcsin({list(self.get_arg_names())[0]})"
+        return f"arcsin({list(self.arg_names())[0]})"
 
 
 class Arccos(Functional):
@@ -232,7 +229,7 @@ class Arccos(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"arccos({list(self.get_arg_names())[0]})"
+        return f"arccos({list(self.arg_names())[0]})"
 
 
 class Arctan(Functional):
@@ -248,7 +245,7 @@ class Arctan(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"arctan({list(self.get_arg_names())[0]})"
+        return f"arctan({list(self.arg_names())[0]})"
 
 
 class Sinh(Functional):
@@ -264,7 +261,7 @@ class Sinh(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"sinh({list(self.get_arg_names())[0]})"
+        return f"sinh({list(self.arg_names())[0]})"
 
 
 class Cosh(Functional):
@@ -280,7 +277,7 @@ class Cosh(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"cosh({list(self.get_arg_names())[0]})"
+        return f"cosh({list(self.arg_names())[0]})"
 
 
 class Tanh(Functional):
@@ -296,7 +293,7 @@ class Tanh(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"tanh({list(self.get_arg_names())[0]})"
+        return f"tanh({list(self.arg_names())[0]})"
 
 
 class Arcsinh(Functional):
@@ -312,7 +309,7 @@ class Arcsinh(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"arcsinh({list(self.get_arg_names())[0]})"
+        return f"arcsinh({list(self.arg_names())[0]})"
 
 
 class Arccosh(Functional):
@@ -328,7 +325,7 @@ class Arccosh(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"arccosh({list(self.get_arg_names())[0]})"
+        return f"arccosh({list(self.arg_names())[0]})"
 
 
 class Arctanh(Functional):
@@ -344,4 +341,4 @@ class Arctanh(Functional):
         return 1
 
     def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"arctanh({list(self.get_arg_names())[0]})"
+        return f"arctanh({list(self.arg_names())[0]})"
