@@ -5,7 +5,7 @@ def test_identity():
     ident = Identity(var=["X"])
     arg = np.arange(20).reshape(20, 1)
     assert (ident(arg) == arg).all()
-    assert ident.arg_names() == set(["X"])
+    assert ident.arg_names() == ["X"]
 
 
 def test_constant():

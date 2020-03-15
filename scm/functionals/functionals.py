@@ -1,10 +1,10 @@
 from scm.noise import Noise
-from .utils import heapdict
-import functools
 
+import functools
 import numpy as np
+
 from abc import ABC, abstractmethod
-from typing import Union, TypeVar, Optional, List, Collection, Dict, Hashable, Callable, Tuple
+from typing import Union, TypeVar, Optional, List, Collection, Dict, Callable, Tuple
 
 
 class Functional(ABC):
@@ -24,23 +24,24 @@ class Functional(ABC):
 
     def __init__(
         self,
-        var: Union[Collection[Hashable], int] = 1,
+        var: Union[Collection[str], int] = 1,
         noise_generator: Optional[Noise] = None,
-        use_internal_noise: Optional[bool] = None,
+        use_external_noise: Optional[bool] = False,
         additive_noise: bool = True,
         is_argument_noise: bool = False,
         noise_transformation: Callable = lambda x: x,
         is_elemental: bool = True,
     ):
         self.noise_gen = noise_generator
-        self.use_noise_gen = noise_generator is not None
+        self.use_external_noise = use_external_noise
+        self.accepts_noise = noise_generator is not None or use_external_noise
         # whether we add the noise to the func or multiply it.
         self.additive_noise = additive_noise
         # whether the noise acts on the functionals' arguments or the functional itself ( f(N*x) vs N*f(x) )
         self.inner_noise = is_argument_noise
         # how the noise is treated inside the functional determined by a callable, that will be used when
         # noise is passed later on: N = self.noise_transformation(noise_array)
-        if self.use_noise_gen:
+        if self.accepts_noise:
             # set the default noise ignore methods, 0 for additive and 1 for multiplicative noise
             if additive_noise:
                 self.noise_transformation = lambda x: 0
@@ -51,7 +52,7 @@ class Functional(ABC):
         # the names of the functionals' arguments
         self.has_named_args = False
         # the positions of the argument names.
-        self.args_to_position: Dict[Hashable, int] = dict()
+        self.args_to_position: Dict[str, int] = dict()
         if isinstance(var, int):
             var = tuple(f"X{i}" for i in range(var))
         self.set_names_for_args(list(var))
@@ -94,14 +95,11 @@ class Functional(ABC):
             "Functional subclasses must provide '__call__' method."
         )
 
-    @abstractmethod
     def __len__(self):
         """
         Method to return the number of variables the functional takes.
         """
-        raise NotImplementedError(
-            "Functional subclasses must provide '__len__' method."
-        )
+        return len(self.arg_names())
 
     def __add__(self, other):
         return AddFunctional(self, other)
@@ -122,7 +120,7 @@ class Functional(ABC):
         return CompositionFunctional(self, other)
 
     @abstractmethod
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
         """
         Method to convert the functional functor to console printable output of the form:
             f(N, x_0,...) = math_rep_of_func_as_string_here...
@@ -150,18 +148,16 @@ class Functional(ABC):
     def __str__(self):
         return self.str()
 
-    def str(self, variable_names: Optional[Collection[Hashable]] = None):
+    def str(self, variable_names: Optional[Collection[str]] = None):
         if variable_names is None:
-            if self.has_named_args:
-                variable_names = list(self.args_to_position.keys())
-            else:
-                variable_names = [f"x_{i}" for i in range(len(self))]
-        variable_names = ["N"] + variable_names
+            variable_names = self.arg_names()
+        if self.accepts_noise:
+            variable_names = ["N"] + list(variable_names)
         functional = self.function_str(variable_names)
         prefix = f"f({', '.join(variable_names)}) = "
         return prefix + functional
 
-    def set_names_for_args(self, names_collection: Collection[Hashable]):
+    def set_names_for_args(self, names_collection: Collection[str]):
         """
         Set the positional relation of input arguments with names.
 
@@ -175,7 +171,7 @@ class Functional(ABC):
         self.has_named_args = True
 
     def arg_names(self):
-        return set(self.args_to_position.keys())
+        return list(self.args_to_position.keys())
 
     @staticmethod
     def call_arg_handler(func):
@@ -212,34 +208,39 @@ class Functional(ABC):
                     "Kwargs provided, but functional doesn't have named arguments."
                 )
 
-            filtered_kwargs = {key: arg for (key, arg) in kwargs.items() if key in self.args_to_position}
-
+            filtered_kwargs_gen = (
+                (key, arg)
+                for (key, arg) in kwargs.items()
+                if key in self.args_to_position
+            )
             args = tuple(
                 val
                 for key, val in sorted(
-                    filtered_kwargs.items(),
+                    filtered_kwargs_gen,
                     key=lambda key_val_pair: self.args_to_position[key_val_pair[0]],
                 )
             )
+        elif args:
+            args = tuple(
+                arg for arg, _ in zip(args, range(len(self)))
+            )  # ignore too many args actively.
 
-        external_noise = noise is not None
-        if external_noise and self.use_noise_gen:
+        if not self.accepts_noise and noise is not None:
             raise ValueError(
                 "External noise was passed to functional, "
-                "but internal noise generator is also set to be used."
+                "but functional doesn't accept noise."
             )
 
-        args = tuple(np.asarray(arg) for arg in args)
-        if external_noise or self.use_noise_gen:
-            if self.use_noise_gen:
-                noise = self.noise_gen(args[0].shape[0])
+        if self.accepts_noise:
+            if not self.use_external_noise:
+                noise = [self.noise_gen(np.asarray(arg).shape[0]) for arg in args]
             noise = self.noise_transformation(noise)
             if self.inner_noise:
                 # inner noise only makes sense for single argument functions, i.e. len(args) == 1
                 if self.additive_noise:
-                    args = (noise + args[0],)
+                    args = tuple(n + arg for n, arg in zip(noise, args))
                 else:
-                    args = (noise * args[0],)
+                    args = tuple(n * arg for n, arg in zip(noise, args))
                 noise = None
 
         return noise, args
@@ -258,17 +259,78 @@ class Functional(ABC):
         return output
 
 
-class FunctionalFromOp(Functional, ABC):
+class BinaryFunctional(Functional, ABC):
     def __init__(self, func1: Functional, func2: Functional):
         self.func1 = func1
         self.func2 = func2
-        v_names = func1.arg_names() | func2.arg_names()  # | = set union
+
+        noise_gen = None
+        if func1.noise_gen is not None and func2.noise_gen is not None:
+            assert (
+                func1.noise_gen.noise_description == func2.noise_gen.noise_description,
+                "The sub functionals shouldn't differ in their expected noise.",
+            )
+            noise_gen = (
+                func1.noise_gen if func1.noise_gen is not None else func2.noise_gen
+            )
+
+        for func in (func1, func2):
+            if func.accepts_noise:
+                func.use_external_noise = True
+
+        f1_args = func1.arg_names()
+        v_names = f1_args + [arg for arg in func2.arg_names() if arg not in f1_args]
+        super().__init__(
+            noise_generator=noise_gen,
+            use_external_noise=False,
+            var=v_names,
+            is_elemental=False,
+        )
+
+
+class CompositionFunctional(BinaryFunctional):
+    r"""
+    The Linear Functional function of the form:
+        f(X_S, N) = offset + \sum_{i \in S} a_i * X_i + noise_coeff * N
+    """
+
+    def __init__(self, func1: Functional, func2: Functional):
+        super().__init__(func1, func2)
+        self.func1.set_names_for_args(func2.arg_names())
+
+    def __call__(
+        self, *args, noise: Optional[Union[np.ndarray, float]] = None, **kwargs
+    ):
+        noise, args = self.prep_call_input(*args, noise=noise, **kwargs)
+        return self.func1(
+            self.func2(*args, noise=noise, **kwargs), noise=None, **kwargs
+        )
+
+    def function_str(self, variable_names: Collection[str] = None):
+        rep_strs = ["", self.func2.function_str(variable_names=variable_names)]
+        selected = int(self.inner_noise)
+
+        if self.accepts_noise:
+            rep_strs[selected] += f"{self.noise_transformation}(N)"
+            if self.additive_noise:
+                rep_strs[selected] += " + "
+            else:
+                rep_strs[selected] += " * "
+
+        rep = rep_strs[0] + self.func1.function_str(variable_names=[rep_strs[1]])
+        return rep
+
+
+class BinaryFunctionalFromOp(BinaryFunctional, ABC):
+    def __init__(self, func1: Functional, func2: Functional):
+        super().__init__(func1, func2)
         self.position_to_func: Dict[int, Tuple[bool, bool]] = dict()
-        self._assign_positions(v_names, func1, func2)
-        super().__init__(var=v_names, is_elemental=False)
+        self._assign_positions(func1, func2)
 
     @Functional.call_arg_handler
-    def __call__(self, *args, noise, **kwargs):
+    def __call__(
+        self, *args, noise: Optional[Union[np.ndarray, float]] = None, **kwargs
+    ):
         left_args = []
         right_args = []
         for pos, arg in enumerate(args):
@@ -279,161 +341,117 @@ class FunctionalFromOp(Functional, ABC):
                 right_args.append(arg)
 
         return self.operation(
-            self.func1(*left_args),
-            self.func2(*right_args),
+            self.func1(*left_args, noise=noise, **kwargs),
+            self.func2(*right_args, noise=noise, **kwargs),
         )
 
-    @abstractmethod
-    def operation(self, *args, noise, **kwargs):
-        raise NotImplementedError(
-            "Functionals from binary operations must implement method `operation`."
-        )
-
-    def _assign_positions(self, all_vars, func1, func2):
+    def _assign_positions(self, func1, func2):
         """
         Assign positional args positions to the functionals.
         """
         f1_args = func1.arg_names()
         f2_args = func2.arg_names()
-        for var in all_vars:
-            self.position_to_func[var] = var in f1_args, var in f2_args
+        for var, pos in self.args_to_position.items():
+            self.position_to_func[pos] = var in f1_args, var in f2_args
+
+    @abstractmethod
+    def operation(
+        self,
+        evaluated_func1: Union[float, np.ndarray],
+        evaluated_func2: Union[float, np.ndarray],
+    ):
+        raise NotImplementedError(
+            "Functionals from binary operations must implement method `operation`."
+        )
+
+    def _assign_names_to_func(self, var_names: Collection[str]):
+        left_vars = []
+        right_vars = []
+        left_var_names = self.func1.arg_names()
+        right_var_names = self.func2.arg_names()
+        for var in var_names:
+            if var in left_var_names:
+                left_vars.append(var)
+            if var in right_var_names:
+                right_vars.append(var)
+        return left_vars, right_vars
 
 
-class AddFunctional(Functional):
+class AddFunctional(BinaryFunctionalFromOp):
     def __init__(self, functional1: Functional, functional2: Functional):
-        self.func1 = functional1
-        self.func2 = functional2
-        v_names = self.func1.arg_names() & (
-            self.func2.arg_names()
-        )  # & = set intersection
-        super().__init__(var=v_names, is_elemental=False)
+        super().__init__(functional1, functional2)
 
-    def __call__(self, noise, *args, **kwargs):
-        return self.func1(noise, *args, **kwargs) + self.func2(noise, *args, **kwargs)
+    def operation(
+        self,
+        evaluated_func1: Union[float, np.ndarray],
+        evaluated_func2: Union[float, np.ndarray],
+    ):
+        return evaluated_func1 + evaluated_func2
 
-    def __len__(self):
-        if self.func1.has_named_args and self.func2.has_named_args:
-            return len(self.arg_names())
-
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return (
-            self.func1.function_str(variable_names)
-            + " + "
-            + self.func2.function_str(variable_names)
-        )
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        left, right = self._assign_names_to_func(variable_names)
+        return self.func1.function_str(left) + " + " + self.func2.function_str(right)
 
 
-class SubFunctional(Functional):
+class SubFunctional(BinaryFunctionalFromOp):
     def __init__(self, functional1: Functional, functional2: Functional):
-        self.assign1 = functional1
-        self.assign2 = functional2
-        super().__init__(is_elemental=False)
+        super().__init__(functional1, functional2)
 
-    def __call__(self, noise, *args, **kwargs):
-        return self.assign1(noise, *args, **kwargs) - self.assign2(
-            noise, *args, **kwargs
-        )
+    def operation(
+        self,
+        evaluated_func1: Union[float, np.ndarray],
+        evaluated_func2: Union[float, np.ndarray],
+    ):
+        return evaluated_func1 - evaluated_func2
 
-    def __len__(self):
-        if self.assign1.has_named_args and self.assign2.has_named_args:
-            return len(self.assign1.arg_names().intersection(self.assign2.arg_names()))
-        else:
-            return len(self.assign1) + len(self.assign2)
-
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return (
-            self.assign1.function_str(variable_names)
-            + " - "
-            + self.assign2.function_str(variable_names)
-        )
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        left, right = self._assign_names_to_func(variable_names)
+        return self.func1.function_str(left) + " - " + self.func2.function_str(right)
 
 
-class MulFunctional(Functional):
+class MulFunctional(BinaryFunctionalFromOp):
     def __init__(self, functional1: Functional, functional2: Functional):
-        self.assign1 = functional1
-        self.assign2 = functional2
-        super().__init__(is_elemental=False)
+        super().__init__(functional1, functional2)
 
-    def __call__(self, noise, *args, **kwargs):
-        return self.assign1(noise, *args, **kwargs) * self.assign2(
-            noise, *args, **kwargs
-        )
+    def operation(
+        self,
+        evaluated_func1: Union[float, np.ndarray],
+        evaluated_func2: Union[float, np.ndarray],
+    ):
+        return evaluated_func1 * evaluated_func2
 
-    def __len__(self):
-        if self.assign1.has_named_args and self.assign2.has_named_args:
-            return len(self.assign1.arg_names().intersection(self.assign2.arg_names()))
-        else:
-            return len(self.assign1) + len(self.assign2)
-
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        a1_string = self.assign1.function_str(variable_names)
-        if self.assign1.is_elemental:
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        left, right = self._assign_names_to_func(variable_names)
+        a1_string = self.func1.function_str(left)
+        if self.func1.is_elemental:
             a1_string = "(" + a1_string + ")"
 
-        a2_string = self.assign1.function_str(variable_names)
-        if self.assign2.is_elemental:
+        a2_string = self.func2.function_str(right)
+        if self.func2.is_elemental:
             a2_string = "(" + a2_string + ")"
 
         return a1_string + " * " + a2_string
 
 
-class DivFunctional(Functional):
+class DivFunctional(BinaryFunctionalFromOp):
     def __init__(self, functional1: Functional, functional2: Functional):
-        self.assign1 = functional1
-        self.assign2 = functional2
-        super().__init__(is_elemental=False)
+        super().__init__(functional1, functional2)
 
-    def __call__(self, noise, *args, **kwargs):
-        return self.assign1(noise, *args, **kwargs) / self.assign2(
-            noise, *args, **kwargs
-        )
+    def operation(
+        self,
+        evaluated_func1: Union[float, np.ndarray],
+        evaluated_func2: Union[float, np.ndarray],
+    ):
+        return evaluated_func1 / evaluated_func2
 
-    def __len__(self):
-        if self.assign1.has_named_args and self.assign2.has_named_args:
-            return len(self.assign1.arg_names().intersection(self.assign2.arg_names()))
-        else:
-            return len(self.assign1) + len(self.assign2)
-
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        a1_string = self.assign1.function_str(variable_names)
-        if self.assign1.is_elemental:
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        left, right = self._assign_names_to_func(variable_names)
+        a1_string = self.func1.function_str(left)
+        if self.func1.is_elemental:
             a1_string = "(" + a1_string + ")"
 
-        a2_string = self.assign1.function_str(variable_names)
-        if self.assign2.is_elemental:
+        a2_string = self.func2.function_str(right)
+        if self.func2.is_elemental:
             a2_string = "(" + a2_string + ")"
 
         return a1_string + " / " + a2_string
-
-
-class CompositionFunctional(Functional):
-    r"""
-    The Linear Functional function of the form:
-        f(X_S, N) = offset + \sum_{i \in S} a_i * X_i + noise_coeff * N
-    """
-
-    def __init__(self, outer: Functional, inner: Functional):
-        self.func_outer = outer
-        self.func_inner = inner
-        super().__init__(is_elemental=False)
-
-    def __call__(self, noise: Union[float, np.ndarray], *args, **kwargs):
-        args = self.prep_call_input(*args, **kwargs)
-        return self.func_outer(noise, self.func_inner(noise, *args, **kwargs), **kwargs)
-
-    def __len__(self):
-        return len(self.func_inner)
-
-    def function_str(self, variable_names: Collection[Hashable] = None):
-        rep_strs = ["", self.func_inner.function_str(variable_names=variable_names)]
-        selected = int(self.inner_noise)
-
-        if self.allow_noise:
-            rep_strs[selected] += f"{self.noise_transformation}(N)"
-            if self.additive_noise:
-                rep_strs[selected] += " + "
-            else:
-                rep_strs[selected] += " * "
-
-        rep = rep_strs[0] + self.func_outer.function_str(variable_names=[rep_strs[1]])
-        return rep

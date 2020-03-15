@@ -1,10 +1,31 @@
-from typing import Optional, Collection, Hashable, Tuple
+from typing import Optional, Collection, Tuple
 
 from .functionals import Functional
 import numpy as np
+from abc import ABC
+from typing import Callable
+import functools
 
 
-class Identity(Functional):
+class ElementalFunctional(Functional, ABC):
+    def __init__(self, **base_kwargs):
+        base_kwargs["is_elemental"] = True
+        super().__init__(**base_kwargs)
+
+    @staticmethod
+    def default_names_handler(func: Callable):
+        @functools.wraps(func)
+        def wrapped_fstr(
+            self, variable_names: Optional[Collection[str]] = None, *args, **kwargs
+        ):
+            if variable_names is None:
+                variable_names = self.arg_names()
+            return func(self, variable_names, *args, **kwargs)
+
+        return wrapped_fstr
+
+
+class Identity(ElementalFunctional):
     def __init__(self, **base_kwargs):
         base_kwargs["is_elemental"] = True
         super().__init__(**base_kwargs)
@@ -16,11 +37,12 @@ class Identity(Functional):
     def __len__(self):
         return 1
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return list(self.arg_names())[0]
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        return variable_names[0]
 
 
-class Constant(Functional):
+class Constant(ElementalFunctional):
     def __init__(self, const_value: float, **base_kwargs):
         self.const_value = const_value
         base_kwargs["is_elemental"] = True
@@ -33,21 +55,19 @@ class Constant(Functional):
     def __len__(self):
         return len(self.arg_names())
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
         return str(self.const_value)
 
 
-class Affine(Functional):
+class Affine(ElementalFunctional):
     r"""
     The affine Functional function of the form:
         f(X_S, N) = offset + \sum_{i \in S} a_i * X_i + noise_coeff * N
     """
 
     def __init__(
-        self,
-        offset: float = 0.0,
-        *coefficients,
-        **base_kwargs,
+        self, offset: float = 0.0, *coefficients, **base_kwargs,
     ):
         self.offset = offset
         self.coefficients = np.asarray(coefficients)
@@ -60,19 +80,21 @@ class Affine(Functional):
         return self.offset + self.coefficients @ args
 
     def __len__(self):
-        return 1 + len(self.args_to_position)
+        return len(self.args_to_position)
 
-    def function_str(self, variable_names=None):
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
         rep = ""
         if self.offset != 0:
             rep += str(round(self.offset, 2))
-        for i, c in enumerate(self.coefficients):
+        uses_noise = self.accepts_noise
+        for i, c in enumerate(self.coefficients, 1 if uses_noise else 0):
             if c != 0:
-                rep += f" + {round(c, 2)} {variable_names[i + 1]}"
+                rep += f" + {round(c, 2)} {variable_names[i]}"
         return rep
 
 
-class Power(Functional):
+class Power(ElementalFunctional):
     def __init__(self, exponent: float, **base_kwargs):
         self.exponent: float = exponent
         base_kwargs.update(dict(is_elemental=True))
@@ -85,11 +107,15 @@ class Power(Functional):
     def __len__(self):
         return 1
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"{list(self.arg_names())[0]} ** {self.exponent}"
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        if variable_names is None:
+            variable_names = self.arg_names()
+        variable_names = variable_names[0]
+        return f"{variable_names[0]} ** {self.exponent}"
 
 
-class Root(Functional):
+class Root(ElementalFunctional):
     def __init__(self, nth_root: int, **base_kwargs):
         self.nth_root: int = nth_root
         self.ordinal = "%d%s" % (
@@ -108,11 +134,12 @@ class Root(Functional):
     def __len__(self):
         return 1
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"{self.ordinal}-root({list(self.arg_names())[0]})"
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        return f"{self.ordinal}-root({variable_names[0]})"
 
 
-class Exp(Functional):
+class Exp(ElementalFunctional):
     def __init__(self, base: float = np.e, **base_kwargs):
         self.base: float = np.log(base)
         base_kwargs["is_elemental"] = True
@@ -128,11 +155,15 @@ class Exp(Functional):
     def __len__(self):
         return 1
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"exp({list(self.arg_names())[0]})"
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        if variable_names is None:
+            variable_names = self.arg_names()
+        variable_names = variable_names[0]
+        return f"exp({variable_names})"
 
 
-class Log(Functional):
+class Log(ElementalFunctional):
     def __init__(self, base: float = np.e, **base_kwargs):
         self.base_log: float = np.log(base)
         base_kwargs["is_elemental"] = True
@@ -148,11 +179,12 @@ class Log(Functional):
     def __len__(self):
         return 1
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"exp({list(self.arg_names())[0]})"
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        return f"exp({variable_names[0]})"
 
 
-class Sin(Functional):
+class Sin(ElementalFunctional):
     def __init__(self, **base_kwargs):
         base_kwargs["is_elemental"] = True
         super().__init__(**base_kwargs)
@@ -164,11 +196,12 @@ class Sin(Functional):
     def __len__(self):
         return 1
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"sin({list(self.arg_names())[0]})"
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        return f"sin({variable_names[0]})"
 
 
-class Cos(Functional):
+class Cos(ElementalFunctional):
     def __init__(self, **base_kwargs):
         base_kwargs["is_elemental"] = True
         super().__init__(**base_kwargs)
@@ -180,11 +213,12 @@ class Cos(Functional):
     def __len__(self):
         return 1
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"cos({list(self.arg_names())[0]})"
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        return f"cos({variable_names[0]})"
 
 
-class Tan(Functional):
+class Tan(ElementalFunctional):
     def __init__(self, **base_kwargs):
         base_kwargs["is_elemental"] = True
         super().__init__(**base_kwargs)
@@ -196,11 +230,12 @@ class Tan(Functional):
     def __len__(self):
         return 1
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"tan({list(self.arg_names())[0]})"
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        return f"tan({variable_names[0]})"
 
 
-class Arcsin(Functional):
+class Arcsin(ElementalFunctional):
     def __init__(self, **base_kwargs):
         base_kwargs["is_elemental"] = True
         super().__init__(**base_kwargs)
@@ -212,11 +247,12 @@ class Arcsin(Functional):
     def __len__(self):
         return 1
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"arcsin({list(self.arg_names())[0]})"
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        return f"arcsin({variable_names[0]})"
 
 
-class Arccos(Functional):
+class Arccos(ElementalFunctional):
     def __init__(self, **base_kwargs):
         base_kwargs["is_elemental"] = True
         super().__init__(**base_kwargs)
@@ -228,11 +264,12 @@ class Arccos(Functional):
     def __len__(self):
         return 1
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"arccos({list(self.arg_names())[0]})"
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        return f"arccos({variable_names[0]})"
 
 
-class Arctan(Functional):
+class Arctan(ElementalFunctional):
     def __init__(self, **base_kwargs):
         base_kwargs["is_elemental"] = True
         super().__init__(**base_kwargs)
@@ -244,11 +281,12 @@ class Arctan(Functional):
     def __len__(self):
         return 1
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"arctan({list(self.arg_names())[0]})"
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        return f"arctan({variable_names[0]})"
 
 
-class Sinh(Functional):
+class Sinh(ElementalFunctional):
     def __init__(self, **base_kwargs):
         base_kwargs["is_elemental"] = True
         super().__init__(**base_kwargs)
@@ -260,11 +298,12 @@ class Sinh(Functional):
     def __len__(self):
         return 1
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"sinh({list(self.arg_names())[0]})"
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        return f"sinh({variable_names[0]})"
 
 
-class Cosh(Functional):
+class Cosh(ElementalFunctional):
     def __init__(self, **base_kwargs):
         base_kwargs["is_elemental"] = True
         super().__init__(**base_kwargs)
@@ -276,11 +315,12 @@ class Cosh(Functional):
     def __len__(self):
         return 1
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"cosh({list(self.arg_names())[0]})"
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        return f"cosh({variable_names[0]})"
 
 
-class Tanh(Functional):
+class Tanh(ElementalFunctional):
     def __init__(self, **base_kwargs):
         base_kwargs["is_elemental"] = True
         super().__init__(**base_kwargs)
@@ -292,11 +332,12 @@ class Tanh(Functional):
     def __len__(self):
         return 1
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"tanh({list(self.arg_names())[0]})"
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        return f"tanh({variable_names[0]})"
 
 
-class Arcsinh(Functional):
+class Arcsinh(ElementalFunctional):
     def __init__(self, **base_kwargs):
         base_kwargs["is_elemental"] = True
         super().__init__(**base_kwargs)
@@ -308,15 +349,12 @@ class Arcsinh(Functional):
     def __len__(self):
         return 1
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"arcsinh({list(self.arg_names())[0]})"
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        return f"arcsinh({variable_names[0]})"
 
 
-class Arccosh(Functional):
-    def __init__(self, **base_kwargs):
-        base_kwargs["is_elemental"] = True
-        super().__init__(**base_kwargs)
-
+class Arccosh(ElementalFunctional):
     @Functional.call_arg_handler
     def __call__(self, arg: np.ndarray, **kwargs):
         return np.arccosh(arg)
@@ -324,15 +362,12 @@ class Arccosh(Functional):
     def __len__(self):
         return 1
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"arccosh({list(self.arg_names())[0]})"
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        return f"arccosh({variable_names[0]})"
 
 
-class Arctanh(Functional):
-    def __init__(self, **base_kwargs):
-        base_kwargs["is_elemental"] = True
-        super().__init__(**base_kwargs)
-
+class Arctanh(ElementalFunctional):
     @Functional.call_arg_handler
     def __call__(self, arg: np.ndarray, **kwargs):
         return np.arctanh(arg)
@@ -340,5 +375,6 @@ class Arctanh(Functional):
     def __len__(self):
         return 1
 
-    def function_str(self, variable_names: Optional[Collection[Hashable]] = None):
-        return f"arctanh({list(self.arg_names())[0]})"
+    @ElementalFunctional.default_names_handler
+    def function_str(self, variable_names: Optional[Collection[str]] = None):
+        return f"arctanh({variable_names[0]})"

@@ -21,7 +21,6 @@ from typing import (
     Mapping,
     Collection,
     Optional,
-    Hashable,
 )
 
 
@@ -48,7 +47,7 @@ class SCM:
 
     def __init__(
         self,
-        functional_map: Mapping[Hashable, Tuple[Collection, Functional, Noise]],
+        functional_map: Mapping[str, Tuple[Collection, Functional, Noise]],
         variable_tex_names: Dict = None,
         scm_name: str = "Structural Causal Model",
     ):
@@ -148,7 +147,7 @@ class SCM:
     def sample(
         self,
         n: int,
-        variables: Optional[Collection[Hashable]] = None,
+        variables: Optional[Collection[str]] = None,
         seed: Optional[int] = None,
     ):
         """
@@ -187,7 +186,7 @@ class SCM:
     def intervention(
         self,
         interventions: Dict[
-            Hashable,
+            str,
             Union[
                 Dict,
                 Tuple[Optional[Collection], Optional[Functional], Optional[Noise]],
@@ -291,9 +290,7 @@ class SCM:
             for parent in parent_list:
                 self.graph.add_edge(parent, var)
 
-    def do_intervention(
-        self, variables: Collection[Hashable], values: Collection[float]
-    ):
+    def do_intervention(self, variables: Collection[str], values: Collection[float]):
         """
         Perform do-interventions, i.e. setting specific variables to a constant value.
         This method removes the noise influence of the intervened variables.
@@ -312,15 +309,17 @@ class SCM:
             None
         """
         if len(variables) != len(values):
-            raise ValueError(f"Got {len(variables)} variables, but {len(values)} values.")
+            raise ValueError(
+                f"Got {len(variables)} variables, but {len(values)} values."
+            )
 
-        interventions_dict: Dict[Hashable, Tuple[List, Functional, None]] = dict()
+        interventions_dict: Dict[str, Tuple[List, Functional, None]] = dict()
         for var, val in zip(variables, values):
-            interventions_dict[var] = ([], AffineFunctional(0, val), None)
+            interventions_dict[var] = ([], Affine(0, val), None)
         self.intervention(interventions_dict)
 
     def soft_intervention(
-        self, variables: Collection[Hashable], noise_models: Collection[Noise]
+        self, variables: Collection[str], noise_models: Collection[Noise]
     ):
         """
         Perform hard interventions, i.e. setting specific variables to a constant value.
@@ -336,14 +335,16 @@ class SCM:
             the constant values the chosen variables should be set to.
         """
         if len(variables) != len(noise_models):
-            raise ValueError(f"Got {len(variables)} variables, but {len(noise_models)} values.")
+            raise ValueError(
+                f"Got {len(variables)} variables, but {len(noise_models)} values."
+            )
 
-        interventions_dict: Dict[Hashable, Tuple[None, None, Noise]] = dict()
+        interventions_dict: Dict[str, Tuple[None, None, Noise]] = dict()
         for var, noise in zip(variables, noise_models):
             interventions_dict[var] = (None, None, noise)
         self.intervention(interventions_dict)
 
-    def undo_intervention(self, variables: Optional[Collection[Hashable]] = None):
+    def undo_intervention(self, variables: Optional[Collection[str]] = None):
         """
         Method to undo previously done interventions.
 
@@ -547,9 +548,9 @@ class SCM:
 
         Yields
         ------
-        Hashable,
+        str,
             the node object used to denote nodes in the graph in causal order. These are usually str or ints, but can be
-            any hashable type passable to a dict.
+            any str type passable to a dict.
         """
         if variables is None:
             for node in nx.topological_sort(self.graph):
