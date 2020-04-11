@@ -1,5 +1,5 @@
-from .functionals import Affine, Functional
-from .noise import Noise
+import random
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -11,6 +11,10 @@ import matplotlib.pyplot as plt
 import logging
 from copy import deepcopy
 
+import sympy
+from sympy.functions import *
+from sympy.stats import sample_iter, FiniteRV, ContinuousRV, JointRV
+
 from typing import (
     List,
     Union,
@@ -19,9 +23,14 @@ from typing import (
     Iterable,
     Set,
     Mapping,
-    Collection,
+    Sequence,
     Optional,
+    Hashable,
+    Sequence,
+    Type,
 )
+
+AnyRV = Union[ContinuousRV, FiniteRV, JointRV]
 
 
 class SCM:
@@ -47,14 +56,15 @@ class SCM:
 
     def __init__(
         self,
-        functional_map: Mapping[str, Tuple[Collection, Functional, Noise]],
+        assignment_map: Mapping[Hashable, Tuple[Sequence[str], str, AnyRV]],
         variable_tex_names: Dict = None,
+        seed: Optional[int] = None,
         scm_name: str = "Structural Causal Model",
     ):
         """
         Construct the SCM from an functional map. The simplest way to construct the bayesian_graphs is to fully provide
         all parental information in a dict form.
-        In short, the first tuple input is the parent names in a Collection, the second is the functional function, and
+        In short, the first tuple input is the parent names in a Sequence, the second is the functional function, and
         as third input the Noise function.
 
         Notes
@@ -89,13 +99,13 @@ class SCM:
         To initialize the scm with this functional map:
 
         >>> causal_net = SCM(
-        ...     functional_map=functional_map,
+        ...     assignment_map=functional_map,
         ...     variable_tex_names={"X_zero": "$X_{zero}$", "X_1": "$X_1$"}
         ... )
 
         Parameters
         ----------
-        functional_map: dict,
+        assignment_map: dict,
             The functional dictionary for the bayesian_graphs construction as explained above.
         variable_tex_names: (optional) Dict,
             A collection of the latex names for the variables in the causal graph. The dict needs to provide a tex name
@@ -108,11 +118,13 @@ class SCM:
         """
 
         self.scm_name: str = scm_name
+        self.seed = seed
+        self.reseed(seed)
         # the root variables which are causally happening at first.
         self.roots: List = []
-        self.nr_variables: int = len(functional_map)
+        self.nr_variables: int = len(assignment_map)
 
-        self.var: np.ndarray = np.array(list(functional_map.keys()))
+        self.var = np.array(list(assignment_map.keys()))
         # supply any variable name, that has not been assigned a different TeX name, with itself as TeX name.
         # This prevents missing labels in the plot method.
         if variable_tex_names is not None:
@@ -125,9 +137,15 @@ class SCM:
             self.var_draw_dict = dict()
 
         # the attribute list that any given node in the graph has.
-        self.function_key, self.noise_key = "functional", "noise"
+        (
+            self.assignment_key,
+            self.noise_key,
+            self.assignment_repr_key,
+            self.noise_repr_key,
+            self.arg_positions_key,
+        ) = ("assignment", "noise", "assignment_repr", "noise_repr", "arg_positions")
 
-        # a backup dictionary of the original functionals of the intervened variables,
+        # a backup dictionary of the original assignments of the intervened variables,
         # in order to undo the interventions later.
         self.interventions_backup_attr: Dict = dict()
         self.interventions_backup_parent: Dict = dict()
@@ -136,7 +154,7 @@ class SCM:
         # any node will be given the attributes of function and noise to later sample from and also an incoming edge
         # from its causal parent. We will store the causal root nodes separately.
         self.graph = nx.DiGraph()
-        self._build_graph(functional_map)
+        self._build_graph(assignment_map)
 
     def __getitem__(self, node):
         return self.graph.pred[node], self.graph.nodes[node]
@@ -147,7 +165,7 @@ class SCM:
     def sample(
         self,
         n: int,
-        variables: Optional[Collection[str]] = None,
+        variables: Optional[Sequence[Hashable]] = None,
         seed: Optional[int] = None,
     ):
         """
@@ -175,21 +193,26 @@ class SCM:
 
         for node in self._causal_iterator(variables):
             node_attr = self.graph.nodes[node]
-            data = node_attr[self.function_key](
-                node_attr[self.noise_key](n),
-                **{pred: sample[pred] for pred in self.graph.predecessors(node)},
+            # emulate the kwarg call of the assignment by placing the args in the right position
+            arg_positions = node_attr[self.arg_positions_key]
+            predecessors = list(self.graph.predecessors(node))
+            noise = np.array(
+                list(sample_iter(node_attr[self.noise_key], numsamples=n)), dtype=float
             )
+            args = [None] * len(predecessors)
+            for pred in predecessors:
+                args[arg_positions[pred] - 1] = sample[pred]
+
+            data = node_attr[self.assignment_key](noise, *args)
             sample[node] = data
-        np.random.seed(None)  # reset random seed
         return pd.DataFrame.from_dict(sample)
 
     def intervention(
         self,
         interventions: Dict[
-            str,
+            Hashable,
             Union[
-                Dict,
-                Tuple[Optional[Collection], Optional[Functional], Optional[Noise]],
+                Dict, Tuple[Optional[Sequence[str]], Optional[str], Optional[AnyRV]],
             ],
         ],
     ):
@@ -208,17 +231,16 @@ class SCM:
             the variables as keys and their new functional as values. For the values one can
             choose between a dictionary or a list-like.
             - For dict: the dictionary is assumed to have the optional keys (default behaviour explained):
-                -- "parents": List of parent variables. If not given, set to current parents.
-                -- "function_key": functional functor. If not given, keeps current functional function.
-                -- "noise_key": noise model. If not given, keeps current noise model.
+                -- "parents": List of parent variables. If None, set to current parents.
+                -- "function_key": str, the new assignment as str. If None, keeps current assignment.
+                -- "noise_key": sympy.rv, the new noise RV. If None, keeps current noise model.
 
                 Note, that when providing new parents without a new functional function, the user implicitly assumes
                 the order of positional parameters of the functional function to agree with the iterative order of the
                 new parents!
 
-            - For tuple: the order is (Parent list, functional functor, noise neural_networks).
+            - For sequence: the order is (Parent list, assignment str, noise RVs).
                 In order to omit one of these, set them to None.
-            - For ndarray: same as list, but dim == 1 assumed (will be flattened otherwise).
         """
         for var, items in interventions.items():
             if var not in self.graph.nodes:
@@ -228,21 +250,21 @@ class SCM:
             if isinstance(items, dict):
                 if any(
                     (
-                        key not in ("parents", self.function_key, self.noise_key)
+                        key not in ("parents", self.assignment_key, self.noise_key)
                         for key in items.keys()
                     )
                 ):
                     raise ValueError(
                         f"Intervention dictionary provided with the wrong keys.\n"
                         f"Observed keys are: {list(items.keys())}\n"
-                        f"Possible keys are: ['parents', '{self.function_key}', '{self.noise_key}']"
+                        f"Possible keys are: ['parents', '{self.assignment_key}', '{self.noise_key}']"
                     )
                 try:
-                    parent_list = tuple(
+                    parents = tuple(
                         par for par in self._filter_variable_names(items.pop("parents"))
                     )
                 except KeyError:
-                    parent_list = tuple(self.graph.predecessors(var))
+                    parents = tuple(self.graph.predecessors(var))
 
                 attr_dict = items
 
@@ -255,14 +277,14 @@ class SCM:
                 ), "The positional items container needs to contain exactly 3 items."
 
                 if items[0] is None:
-                    parent_list = tuple(self.graph.predecessors(var))
+                    parents = tuple(self.graph.predecessors(var))
                 else:
-                    parent_list = tuple(
+                    parents = tuple(
                         par for par in self._filter_variable_names(items[0])
                     )
                 attr_dict = dict()
                 if items[1] is not None:
-                    attr_dict.update({self.function_key: items[1]})
+                    attr_dict.update({self.assignment_key: items[1]})
                 if items[2] is not None:
                     attr_dict.update({self.noise_key: items[2]})
 
@@ -270,6 +292,11 @@ class SCM:
                 raise ValueError(
                     f"Intervention items container '{type(items)}' not supported."
                 )
+
+            # patch up the attr dict as the provided items were merely strings and now need to be parsed by sympy.
+            attr_dict = self._make_attr_dict(
+                attr_dict[self.assignment_key], parents, attr_dict[self.noise_key]
+            )
 
             if var not in self.interventions_backup_attr:
                 # the variable has NOT already been backed up. If we overwrite it now it is fine. If it had already been
@@ -285,12 +312,11 @@ class SCM:
                     self.graph.remove_edge(parent, var)
                 self.interventions_backup_parent[var] = parent_backup
 
-            attr_dict[self.function_key].set_names_for_args(parent_list)
             self.graph.add_node(var, **attr_dict)
-            for parent in parent_list:
+            for parent in parents:
                 self.graph.add_edge(parent, var)
 
-    def do_intervention(self, variables: Collection[str], values: Collection[float]):
+    def do_intervention(self, variables: Sequence[Hashable], values: Sequence[float]):
         """
         Perform do-interventions, i.e. setting specific variables to a constant value.
         This method removes the noise influence of the intervened variables.
@@ -299,9 +325,9 @@ class SCM:
 
         Parameters
         ----------
-        variables : Collection,
+        variables : Sequence,
             the variables to intervene on.
-        values : Collection[float],
+        values : Sequence[float],
             the constant values the chosen variables should be set to.
 
         Returns
@@ -313,13 +339,13 @@ class SCM:
                 f"Got {len(variables)} variables, but {len(values)} values."
             )
 
-        interventions_dict: Dict[str, Tuple[List, Functional, None]] = dict()
+        interventions_dict: Dict[Hashable, Tuple[List, str, None]] = dict()
         for var, val in zip(variables, values):
-            interventions_dict[var] = ([], Affine(0, val), None)
+            interventions_dict[var] = ([], str(val), None)
         self.intervention(interventions_dict)
 
     def soft_intervention(
-        self, variables: Collection[str], noise_models: Collection[Noise]
+        self, variables: Sequence[Hashable], noise_models: Sequence[AnyRV],
     ):
         """
         Perform hard interventions, i.e. setting specific variables to a constant value.
@@ -329,22 +355,22 @@ class SCM:
 
         Parameters
         ----------
-        variables : Collection,
+        variables : Sequence,
             the variables to intervene on.
-        noise_models : Collection[float],
+        noise_models : Sequence[float],
             the constant values the chosen variables should be set to.
         """
         if len(variables) != len(noise_models):
             raise ValueError(
-                f"Got {len(variables)} variables, but {len(noise_models)} values."
+                f"Got {len(variables)} variables, but {len(noise_models)} noise models."
             )
 
-        interventions_dict: Dict[str, Tuple[None, None, Noise]] = dict()
+        interventions_dict: Dict[Hashable, Tuple[None, None, AnyRV]] = dict()
         for var, noise in zip(variables, noise_models):
             interventions_dict[var] = (None, None, noise)
         self.intervention(interventions_dict)
 
-    def undo_intervention(self, variables: Optional[Collection[str]] = None):
+    def undo_intervention(self, variables: Optional[Sequence[Hashable]] = None):
         """
         Method to undo previously done interventions.
 
@@ -378,18 +404,15 @@ class SCM:
 
     def reseed(self, seed: int):
         """
-        Seeds the noise functions of each variable to a fixed (but different!) seed, deterministically computed from the
-        seed provided.
+        Seeds the assignments.
 
         Parameters
         ----------
         seed: int,
             The seed to use for rng.
         """
-        seed_addon = 0
-        for var in self.get_variables():
-            self.graph.nodes[var][self.noise_key].set_seed(seed + seed_addon)
-            seed_addon += 1
+        self.seed = seed
+        random.seed(seed)
 
     def plot(
         self,
@@ -441,7 +464,7 @@ class SCM:
             arguments to be passed to the ``networkx.draw`` method. Check its documentation for a full list.
         """
         if nx.is_tree(self.graph):
-            pos = self._hierarchy_pos(root=self.roots[0])
+            pos = hierarchy_pos(self.graph, root=self.roots[0])
         else:
             pos = graphviz_layout(self.graph, prog="dot")
         plt.title(self.scm_name)
@@ -481,14 +504,15 @@ class SCM:
             f"Structural Causal Model of {self.nr_variables} variables: "
             + ", ".join(self.var),
             f"Following variables are actively intervened on: {list(self.interventions_backup_attr.keys())}",
-            "Current Functional Functions are:",
+            "Current Assignments are:",
         ]
         max_var_space = max([len(var_name) for var_name in self.var])
         for node in self.graph.nodes:
-            parents_var = [pred for pred in self.graph.predecessors(node)]
-            line = f"{str(node).rjust(max_var_space)} := {self.graph.nodes[node][self.function_key].str(parents_var)}"
+            parents_var = ["N"] + [pred for pred in self.graph.predecessors(node)]
+            args_str = ", ".join(parents_var)
+            line = f"{str(node).rjust(max_var_space)} := f({args_str}) = {self.graph.nodes[node][self.assignment_repr_key]}"
             # add explanation to the noise term
-            line += f"\t [ N := {str(self.graph.nodes[node][self.noise_key])} ]"
+            line += f"\t [ N := {str(self.graph.nodes[node][self.noise_repr_key])} ]"
             lines.append(line)
         return "\n".join(lines)
 
@@ -499,16 +523,45 @@ class SCM:
             return self.graph.nodes
 
     def _build_graph(self, functional_map):
-        for node_name, (parents_list, function, noise_model) in functional_map.items():
-            function.set_names_for_args(parents_list)
-            self.graph.add_node(
-                node_name, **{self.function_key: function, self.noise_key: noise_model}
-            )
+        for (
+            node_name,
+            (parents_list, assignment_str, noise_model),
+        ) in functional_map.items():
             if len(parents_list) > 0:
                 for parent in parents_list:
                     self.graph.add_edge(parent, node_name)
             else:
                 self.roots.append(node_name)
+
+            attr_dict = self._make_attr_dict(assignment_str, parents_list, noise_model)
+
+            self.graph.add_node(
+                node_name, **attr_dict,
+            )
+
+    def _make_attr_dict(
+        self, assignment_str: str, parents_list: Sequence[str], noise_model: AnyRV
+    ):
+        """
+        Build the attributes dict for a node in the graph.
+        """
+        # the map that provides the positional mapping of arg names to each assignment
+        # this is needed as assignment_str strings are lambdified and kwargs then no longer
+        # possible, so this mapping emulates just that.
+        args_positions = {
+            pa: pos for pa, pos in zip(parents_list, range(1, len(parents_list) + 1))
+        }
+        noise, assignment = sympify_assignment(
+            assignment_str, parents_list, noise_model
+        )
+        attr_dict = {
+            self.assignment_key: assignment,
+            self.noise_key: noise,
+            self.assignment_repr_key: assignment_str,
+            self.noise_repr_key: extract_rv_desc(noise_model),
+            self.arg_positions_key: args_positions,
+        }
+        return attr_dict
 
     def _filter_variable_names(self, variables: Iterable):
         """
@@ -548,9 +601,9 @@ class SCM:
 
         Yields
         ------
-        str,
+        Hashable,
             the node object used to denote nodes in the graph in causal order. These are usually str or ints, but can be
-            any str type passable to a dict.
+            any hashable type passable to a dict.
         """
         if variables is None:
             for node in nx.topological_sort(self.graph):
@@ -571,169 +624,216 @@ class SCM:
         for key, _ in sorted(var_causal_priority.items(), key=lambda x: -x[1]):
             yield key
 
-    def _hierarchy_pos(
-        self,
-        root=None,
-        width=1.0,
-        vert_gap=0.2,
-        vert_loc=0,
-        leaf_vs_root_factor=0.5,
-        check_for_tree=True,
-    ):
 
-        """
-        If the graph is a tree this will return the positions to plot this in a
-        hierarchical layout.
+def sympify_assignment(assignment_str: str, parents: Sequence[str], noise_model: AnyRV):
+    """
+    Parse the provided assignment string with sympy and then lambidfys it, to be used as a normal function.
 
-        Based on Joel's answer at https://stackoverflow.com/a/29597209/2966723,
-        but with some modifications.
+    Parameters
+    ----------
+    assignment_str: str, the assignment to parse.
+    parents: Sequence, the parents' names.
+    noise_model: AnyRV, the random variable inside the assignment.
 
-        We include this because it may be useful for plotting transmission trees,
-        and there is currently no networkx equivalent (though it may be coming soon).
+    Returns
+    -------
+    function, the lambdified assignment.
+    """
 
-        There are two basic approaches we think of to allocate the horizontal
-        location of a node.
+    N = noise_model
+    symbols = [N]
+    for par in parents:
+        exec(f"{par} = sympy.Symbol('{par}')")
+        symbols.append(eval(par))
 
-        - Top down: we allocate horizontal space to a node.  Then its ``k``
-          descendants split up that horizontal space equally.  This tends to result
-          in overlapping nodes when some have many descendants.
-        - Bottom up: we allocate horizontal space to each leaf node.  A node at a
-          higher level gets the entire space allocated to its descendant leaves.
-          Based on this, leaf nodes at higher levels get the same space as leaf
-          nodes very deep in the tree.
-
-        We use use both of these approaches simultaneously with ``leaf_vs_root_factor``
-        determining how much of the horizontal space is based on the bottom up
-        or top down approaches.  ``0`` gives pure bottom up, while 1 gives pure top
-        down.
-
-
-        Parameters
-        ----------
-        **G** the graph (must be a tree)
-
-        **root** the root node of the tree
-        - if the tree is directed and this is not given, the root will be found and used
-        - if the tree is directed and this is given, then the positions will be
-          just for the descendants of this node.
-        - if the tree is undirected and not given, then a random choice will be used.
-
-        **width** horizontal space allocated for this branch - avoids overlap with other branches
-
-        **vert_gap** gap between levels of hierarchy
-
-        **vert_loc** vertical location of root
-
-        **leaf_vs_root_factor**
-        """
-        G = self.graph
-        if check_for_tree and not nx.is_tree(G):
-            raise TypeError("cannot use hierarchy_pos on a graph that is not a tree")
-
-        if root is None:
-            if isinstance(G, nx.DiGraph):
-                root = next(
-                    iter(nx.topological_sort(G))
-                )  # allows back compatibility with nx version 1.11
-            else:
-                root = np.random.choice(list(G.nodes))
-
-        def __hierarchy_pos(
-            G_,
-            root_,
-            leftmost_,
-            width_,
-            leafdx_=0.2,
-            vert_gap_=0.2,
-            vert_loc_=0,
-            xcenter_=0.5,
-            rootpos_=None,
-            leafpos_=None,
-            parent_=None,
-        ):
-            """
-            see hierarchy_pos docstring for most arguments
-
-            pos: a dict saying where all nodes go if they have been assigned
-            parent: parent of this branch. - only affects it if non-directed
-
-            """
-
-            if rootpos_ is None:
-                rootpos_ = {root_: (xcenter_, vert_loc_)}
-            else:
-                rootpos_[root_] = (xcenter_, vert_loc_)
-            if leafpos_ is None:
-                leafpos_ = {}
-            children = list(G_.neighbors(root_))
-            leaf_count = 0
-            if not isinstance(G_, nx.DiGraph) and parent_ is not None:
-                children.remove(parent_)
-            if len(children) != 0:
-                rootdx = width_ / len(children)
-                nextx = xcenter_ - width_ / 2 - rootdx / 2
-                for child in children:
-                    nextx += rootdx
-                    rootpos_, leafpos_, newleaves = __hierarchy_pos(
-                        G_,
-                        child,
-                        leftmost_ + leaf_count * leafdx_,
-                        width_=rootdx,
-                        leafdx_=leafdx_,
-                        vert_gap_=vert_gap_,
-                        vert_loc_=vert_loc_ - vert_gap_,
-                        xcenter_=nextx,
-                        rootpos_=rootpos_,
-                        leafpos_=leafpos_,
-                        parent_=root_,
-                    )
-                    leaf_count += newleaves
-
-                leftmostchild = min(
-                    (x for x, y in [leafpos_[child] for child in children])
-                )
-                rightmostchild = max(
-                    (x for x, y in [leafpos_[child] for child in children])
-                )
-                leafpos_[root_] = ((leftmostchild + rightmostchild) / 2, vert_loc_)
-            else:
-                leaf_count = 1
-                leafpos_[root_] = (leftmost_, vert_loc_)
-            #        pos[root] = (leftmost + (leaf_count-1)*dx/2., vert_loc)
-            print(leaf_count)
-            return rootpos_, leafpos_, leaf_count
-
-        xcenter = width / 2.0
-        if isinstance(G, nx.DiGraph):
-            leafcount = len(
-                [node for node in nx.descendants(G, root) if G.out_degree(node) == 0]
-            )
-        elif isinstance(G, nx.Graph):
-            leafcount = len(
-                [
-                    node
-                    for node in nx.node_connected_component(G, root)
-                    if G.degree(node) == 1 and node != root
-                ]
-            )
-        rootpos, leafpos, leaf_count = __hierarchy_pos(
-            G,
-            root,
-            0,
-            width,
-            leafdx_=width * 1.0 / leafcount,
-            vert_gap_=vert_gap,
-            vert_loc_=vert_loc,
-            xcenter_=xcenter,
+    assignment = sympy.sympify(eval(assignment_str))
+    try:
+        assignment = sympy.lambdify(symbols, assignment, "numpy")
+    except NameError as e:
+        warnings.warn(
+            "A assignment_str was not found in numpy, the error message reads:",
+            e,
+            "\nLambdifying without numpy.",
         )
-        pos = {}
-        for node in rootpos:
-            pos[node] = (
-                leaf_vs_root_factor * leafpos[node][0]
-                + (1 - leaf_vs_root_factor) * rootpos[node][0],
-                leafpos[node][1],
+        assignment = sympy.lambdify(symbols, assignment)
+    return N, assignment
+
+
+def extract_rv_desc(rv: Union[ContinuousRV, FiniteRV]):
+    """
+    Extracts a human readable string description of the random variable.
+
+    Parameters
+    ----------
+    rv: FiniteRV or ContinuousRV, the random variable.
+
+    Returns
+    -------
+    str, the description.
+    """
+    return str(rv.pspace.args[1])
+
+
+def hierarchy_pos(
+    G: nx.Graph,
+    root=None,
+    width=1.0,
+    vert_gap=0.2,
+    vert_loc=0,
+    leaf_vs_root_factor=0.5,
+    check_for_tree=True,
+):
+
+    """
+    If the graph is a tree this will return the positions to plot this in a
+    hierarchical layout.
+
+    Based on Joel's answer at https://stackoverflow.com/a/29597209/2966723,
+    but with some modifications.
+
+    We include this because it may be useful for plotting transmission trees,
+    and there is currently no networkx equivalent (though it may be coming soon).
+
+    There are two basic approaches we think of to allocate the horizontal
+    location of a node.
+
+    - Top down: we allocate horizontal space to a node.  Then its ``k``
+      descendants split up that horizontal space equally.  This tends to result
+      in overlapping nodes when some have many descendants.
+    - Bottom up: we allocate horizontal space to each leaf node.  A node at a
+      higher level gets the entire space allocated to its descendant leaves.
+      Based on this, leaf nodes at higher levels get the same space as leaf
+      nodes very deep in the tree.
+
+    We use use both of these approaches simultaneously with ``leaf_vs_root_factor``
+    determining how much of the horizontal space is based on the bottom up
+    or top down approaches.  ``0`` gives pure bottom up, while 1 gives pure top
+    down.
+
+
+    Parameters
+    ----------
+    **G** the graph (must be a tree)
+
+    **root** the root node of the tree
+    - if the tree is directed and this is not given, the root will be found and used
+    - if the tree is directed and this is given, then the positions will be
+      just for the descendants of this node.
+    - if the tree is undirected and not given, then a random choice will be used.
+
+    **width** horizontal space allocated for this branch - avoids overlap with other branches
+
+    **vert_gap** gap between levels of hierarchy
+
+    **vert_loc** vertical location of root
+
+    **leaf_vs_root_factor**
+    """
+    if check_for_tree and not nx.is_tree(G):
+        raise TypeError("cannot use hierarchy_pos on a graph that is not a tree")
+
+    if root is None:
+        if isinstance(G, nx.DiGraph):
+            root = next(
+                iter(nx.topological_sort(G))
+            )  # allows back compatibility with nx version 1.11
+        else:
+            root = np.random.choice(list(G.nodes))
+
+    def __hierarchy_pos(
+        G_,
+        root_,
+        leftmost_,
+        width_,
+        leafdx_=0.2,
+        vert_gap_=0.2,
+        vert_loc_=0,
+        xcenter_=0.5,
+        rootpos_=None,
+        leafpos_=None,
+        parent_=None,
+    ):
+        """
+        see hierarchy_pos docstring for most arguments
+
+        pos: a dict saying where all nodes go if they have been assigned
+        parent: parent of this branch. - only affects it if non-directed
+
+        """
+
+        if rootpos_ is None:
+            rootpos_ = {root_: (xcenter_, vert_loc_)}
+        else:
+            rootpos_[root_] = (xcenter_, vert_loc_)
+        if leafpos_ is None:
+            leafpos_ = {}
+        children = list(G_.neighbors(root_))
+        leaf_count = 0
+        if not isinstance(G_, nx.DiGraph) and parent_ is not None:
+            children.remove(parent_)
+        if len(children) != 0:
+            rootdx = width_ / len(children)
+            nextx = xcenter_ - width_ / 2 - rootdx / 2
+            for child in children:
+                nextx += rootdx
+                rootpos_, leafpos_, newleaves = __hierarchy_pos(
+                    G_,
+                    child,
+                    leftmost_ + leaf_count * leafdx_,
+                    width_=rootdx,
+                    leafdx_=leafdx_,
+                    vert_gap_=vert_gap_,
+                    vert_loc_=vert_loc_ - vert_gap_,
+                    xcenter_=nextx,
+                    rootpos_=rootpos_,
+                    leafpos_=leafpos_,
+                    parent_=root_,
+                )
+                leaf_count += newleaves
+
+            leftmostchild = min((x for x, y in [leafpos_[child] for child in children]))
+            rightmostchild = max(
+                (x for x, y in [leafpos_[child] for child in children])
             )
-        xmax = max(x for x, y in pos.values())
-        for node in pos:
-            pos[node] = (pos[node][0] * width / xmax, pos[node][1])
-        return pos
+            leafpos_[root_] = ((leftmostchild + rightmostchild) / 2, vert_loc_)
+        else:
+            leaf_count = 1
+            leafpos_[root_] = (leftmost_, vert_loc_)
+        #        pos[root] = (leftmost + (leaf_count-1)*dx/2., vert_loc)
+        print(leaf_count)
+        return rootpos_, leafpos_, leaf_count
+
+    xcenter = width / 2.0
+    if isinstance(G, nx.DiGraph):
+        leafcount = len(
+            [node for node in nx.descendants(G, root) if G.out_degree(node) == 0]
+        )
+    elif isinstance(G, nx.Graph):
+        leafcount = len(
+            [
+                node
+                for node in nx.node_connected_component(G, root)
+                if G.degree(node) == 1 and node != root
+            ]
+        )
+    rootpos, leafpos, leaf_count = __hierarchy_pos(
+        G,
+        root,
+        0,
+        width,
+        leafdx_=width * 1.0 / leafcount,
+        vert_gap_=vert_gap,
+        vert_loc_=vert_loc,
+        xcenter_=xcenter,
+    )
+    pos = {}
+    for node in rootpos:
+        pos[node] = (
+            leaf_vs_root_factor * leafpos[node][0]
+            + (1 - leaf_vs_root_factor) * rootpos[node][0],
+            leafpos[node][1],
+        )
+    xmax = max(x for x, y in pos.values())
+    for node in pos:
+        pos[node] = (pos[node][0] * width / xmax, pos[node][1])
+    return pos
