@@ -39,7 +39,7 @@ class SCM:
 
     With this class one can sample causally from the underlying graph and also perform do-interventions and
     soft-interventions, as well as more general interventions targeting one or more variables with arbitrary
-    changes to the functional and noise structure (including parent-child relationship changes).
+    changes to the assignment and/or noise structure (including parent-child relationship changes).
 
     For visualization aid, the SCM can plot itself and also print a summary of itself to the console.
     To this end, the decision was made to limit the potential input to the SCM objects in terms of
@@ -49,9 +49,8 @@ class SCM:
 
     Notes
     -----
-    At the current status of implementation, this base class inheritance is not further enforced than by static
-    type hints. This means, one may well be able to simply provide e.g. a lambda function for their
-    functional or noise function, however no guarantee is given that certain methods wouldn't break then.
+    When constructing or intervening the user is responsible to guarantee acyclicity in the SCM. No checks are enabled
+    at this stage.
     """
 
     def __init__(
@@ -62,39 +61,37 @@ class SCM:
         scm_name: str = "Structural Causal Model",
     ):
         """
-        Construct the SCM from an functional map. The simplest way to construct the bayesian_graphs is to fully provide
-        all parental information in a dict form.
-        In short, the first tuple input is the parent names in a Sequence, the second is the functional function, and
-        as third input the Noise function.
+        Construct the SCM from an assignment map in dict form with the variables as keys and its assignment information
+        as tuple of parents, assignment, and noise distribution.
 
         Notes
         -----
-        Note, that the functional function needs to align with the parents list (as provided) given as positional input!
+        Note, that the assignment string needs to align with the parents list namewise!
 
         Examples
         --------
         >>> functional_map = {
         ...     "X_zero": (
         ...         [],
-        ...         Affine(1, 0),
-        ...         NoiseGenerator("normal", scale=0.3)
+        ...         "N",
+        ...         LogLogistic("N", alpha=1, beta=1)
         ...     ),
         ...     "X_1": (
         ...         ["X_zero"],
-        ...         Affine(1, 1, 1),
-        ...         NoiseGenerator("normal", scale=1)),
+        ...         "N * 3 * X_zero ** 2",
+        ...         LogNormal("N", mu=1, sigma=0.5),
         ...     "Y": (
         ...         ["X_zero", "X_1"],
-        ...         Polynomial([0, 1], [0, 2], [0, 0, -1]),
-        ...         NoiseGenerator("normal", scale=2),
+        ...         "N + 2 * X_zero + sqrt(X_1)",
+        ...         Normal("N", mean=2, std=1),
         ...     ),
         ... }
 
         This sets up 3 variables of the form:
 
-        .. math:: X_0 = N(0, 0.3)
-        .. math:: X_1 = X_0 + N(0, 1)
-        .. math::   Y = 2 * X_0 - (X_1)^2 + N(0, 2)
+        .. math:: X_0 = LogListic(1, 1)
+        .. math:: X_1 = 3 (X_0)^2 + Normal(1, 0.5)
+        .. math::   Y = 2 * X_0 - sqrt(X_1) + Normal(2, 1)
 
         To initialize the scm with this functional map:
 
@@ -106,15 +103,17 @@ class SCM:
         Parameters
         ----------
         assignment_map: dict,
-            The functional dictionary for the bayesian_graphs construction as explained above.
+            The functional dictionary for the SCM construction as explained above.
         variable_tex_names: (optional) Dict,
             A collection of the latex names for the variables in the causal graph. The dict needs to provide a tex name
             for each passed variable name in the form: {"VarName": "VarName_in_TeX"}.
             Any variable that is missing in the dictionary will be assumed to accept its current name as the TeX
             version.
             If not provided defaults to the input names in the functional map.
+        seed: (optional) str,
+            Seeding the graph for reproducibility.
         scm_name: (optional) str,
-            The name of the bayesian_graphs to construct. Default is 'Structural Causal Model'.
+            The name of the SCM. Default is 'Structural Causal Model'.
         """
 
         self.scm_name: str = scm_name
@@ -586,7 +585,7 @@ class SCM:
                     f"Variable '{variable}' not found in graph. Omitting it."
                 )
 
-    def _causal_iterator(self, variables: Iterable = None):
+    def _causal_iterator(self, variables: Optional[Iterable] = None):
         """
         Provide a causal iterator through the graph starting from the roots going to the variables needed.
 
