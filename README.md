@@ -55,9 +55,9 @@ print(myscm)
 Structural Causal Model of 3 variables: Z, X, Y
 Following variables are actively intervened on: []
 Current Assignments are:
-Z := f(N) = N	 [ N := LogLogisticDistribution(1, 1) ]
-X := f(N, Z) = N * 3 * Z ** 2	 [ N := LogNormalDistribution(10, 1) ]
-Y := f(N, Z, X) = N + 2 * Z + sqrt(X)	 [ N := NormalDistribution(2, 1) ]
+Z := f(N) = N	 [ N := LogLogistic(1, 1) ]
+X := f(N, Z) = N * 3 * Z ** 2	 [ N := LogNormal(10, 1) ]
+Y := f(N, Z, X) = N + 2 * Z + sqrt(X)	 [ N := Normal(2, 1) ]
 ```
 Perform the Do-intervention ![\text{do}(X=1=)](https://latex.codecogs.com/svg.latex?&space;\text{do}(X=1)) :
 ```python
