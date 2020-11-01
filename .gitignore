@@ -1,3 +1,6 @@
 
 **/__pycache__/
 **/.idea
+.eggs/
+
+SCM.egg-info/

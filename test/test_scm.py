@@ -16,13 +16,13 @@ def manual_standard_sample(n, dtype, names, seed):
     sample[:, 1] = 1 + noise_func(n) + 2 * sample[:, 0] ** 2
     sample[:, 2] = 1 + noise_func(n) + 3 * sample[:, 0] + 2 * sample[:, 1]
     sample[:, 3] = (
-        noise_func(n)
-        + sample[:, 1]
-        + 0.5 * np.sqrt(np.abs(sample[:, 1]))
-        + 4 * np.log(np.abs(sample[:, 2]))
+            noise_func(n)
+            + sample[:, 1]
+            + 0.5 * np.sqrt(np.abs(sample[:, 1]))
+            + 4 * np.log(np.abs(sample[:, 2]))
     )
     sample[:, 4] = (
-        noise_func(n) + Polynomial([0, 0, 0.05])(sample[:, 0]) + 2 * sample[:, 2]
+            noise_func(n) + Polynomial([0, 0, 0.05])(sample[:, 0]) + 2 * sample[:, 2]
     )
     sample = pd.DataFrame(sample, columns=names)
     return sample
@@ -34,7 +34,7 @@ def noise_studentt(n, seed=0):
 
 def test_scm_build():
     cn = build_scm_simple()
-    nodes_in_graph = sorted(cn.graph.nodes)
+    nodes_in_graph = sorted(cn.dag.nodes)
     assert nodes_in_graph == sorted(["X_0", "X_1", "X_2", "X_3", "X_4", "X_5", "Y"])
 
 
@@ -44,7 +44,7 @@ def test_scm_sample():
     random.seed(0)
     scm_sample = cn.sample(n)
     sample = manual_standard_sample(
-        n, scm_sample.values.dtype, list(cn.graph.nodes), seed=0
+        n, scm_sample.values.dtype, list(cn.dag.nodes), seed=0
     )
     sample_order_scm = list(cn.get_variables())
     sample = sample[sample_order_scm]
@@ -82,14 +82,14 @@ def test_scm_intervention():
     sample[:, 1] = 1 + noise_func(n) + 2 * sample[:, 0] ** 2
     sample[:, 2] = 1 + noise_func(n) + 3 * sample[:, 0] + 2 * sample[:, 1]
     sample[:, 4] = (
-        noise_func(n)
-        + Polynomial([0, 0, 0.05])(sample[:, 0])
-        + Polynomial([0, 2])(sample[:, 2])
+            noise_func(n)
+            + Polynomial([0, 0, 0.05])(sample[:, 0])
+            + Polynomial([0, 2])(sample[:, 2])
     )
     sample[:, 3] = np.asarray(
         list(sample_iter(Normal("N", 5, 2), numsamples=n))
     ) + 3.3 * (sample[:, 0] + sample[:, 4])
-    sample = pd.DataFrame(sample, columns=list(cn.graph.nodes))
+    sample = pd.DataFrame(sample, columns=list(cn.dag.nodes))
     manual_sample = sample[list(cn.get_variables())]
 
     manual_mean = manual_sample.mean(0)
@@ -105,10 +105,19 @@ def test_scm_intervention():
     cn.reseed(0)
 
     manual_sample = manual_standard_sample(
-        n, scm_sample_interv.values.dtype, list(cn.graph.nodes), 0
+        n, scm_sample_interv.values.dtype, list(cn.dag.nodes), 0
     )[list(cn.get_variables())]
     new_cn_sample = cn.sample(n)
     manual_mean = manual_sample.mean(0)
     scm_mean = new_cn_sample.mean(0)
     exp_diff = (manual_mean - scm_mean).abs().values
     assert (exp_diff < 1e-1).all()
+
+
+def test_reproducibility():
+    cn = build_scm_linandpoly()
+    # cn.reseed(1)
+    n = 20
+    sample = cn.sample(n, seed=1)
+    sample2 = cn.sample(n, seed=1)
+    assert (sample.to_numpy() == sample2.to_numpy()).all()

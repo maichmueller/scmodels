@@ -1,2 +1,2 @@
 # SCM
-Python Package to build Structural Causal Models (SCM).
+Python Package implementing Structural Causal Models (SCM).
