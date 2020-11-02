@@ -3,7 +3,21 @@
 
 A Python package implementing Structural Causal Models (SCM).
 
-The library uses the CAS library [SymPy](https://github.com/sympy/sympy) to allow the user to state arbitrary assignmnent functions and noise distributions as supported by SymPy.
+The library uses the CAS library [SymPy](https://github.com/sympy/sympy) to allow the user to state arbitrary assignmnent functions and noise distributions as supported by SymPy and builds the DAG with [networkx](https://github.com/networkx/networkx).
+
+It supports the features:
+  - Sampling (also only partially)
+  - Intervening
+  - Plotting
+  - Printing
+  
+# Installation
+Git clone the repository and run the setup.py file
+```
+git clone https://github.com/maichmueller/scm
+cd scm
+python setup.py install
+```
 
 # Example usage
 
@@ -16,7 +30,7 @@ with the assignments
 
 ![Z = LogLogistic(alpha=1, beta=1)](https://latex.codecogs.com/svg.latex?&space;Z=\text{LogLogistic}(\alpha=1,\beta=1))
 
-![X = 3Z^2{\cdot}N](https://latex.codecogs.com/svg.latex?&space;X={3Z^2}{\cdot}N\quad[N=\text{LogNormal}(\mu=10,\sigma=1)])
+![X = 3Z^2{\cdot}N](https://latex.codecogs.com/svg.latex?&space;X={3Z^2}{\cdot}N\quad[N=\text{LogNormal}(\mu=1,\sigma=1)])
 
 ![Y = 2Z + \sqrt{X} + N](https://latex.codecogs.com/svg.latex?&space;Y=2Z+\sqrt{X}+N\quad[N=\text{Normal}(\mu=2,\sigma=1)])
 
@@ -36,7 +50,7 @@ functional_map = {
    "X": (
        ["Z"],
        "N * 3 * Z ** 2",
-       LogNormal("N", mean=10, std=1),
+       LogNormal("N", mean=1, std=1),
    ),
    "Y": (
        ["Z", "X"],
@@ -56,11 +70,23 @@ Structural Causal Model of 3 variables: Z, X, Y
 Following variables are actively intervened on: []
 Current Assignments are:
 Z := f(N) = N	 [ N := LogLogistic(1, 1) ]
-X := f(N, Z) = N * 3 * Z ** 2	 [ N := LogNormal(10, 1) ]
+X := f(N, Z) = N * 3 * Z ** 2	 [ N := LogNormal(1, 1) ]
 Y := f(N, Z, X) = N + 2 * Z + sqrt(X)	 [ N := Normal(2, 1) ]
 ```
 Perform the Do-intervention ![\text{do}(X=1=)](https://latex.codecogs.com/svg.latex?&space;\text{do}(X=1)) :
 ```python
 myscm.do_intervention(["X"], [1])
+```
+and sample from it
+```python
+myscm.sample(5)
+```
+```
+   X          Z          Y
+0  1   0.020325   0.993296
+1  1   0.561370   4.014003
+2  1   0.047893   3.856194
+3  1  26.286726  55.666348
+4  1   1.870452   6.657642
 ```
 
