@@ -38,6 +38,17 @@ def test_scm_build():
     assert nodes_in_graph == sorted(["X_0", "X_1", "X_2", "X_3", "X_4", "X_5", "Y"])
 
 
+def test_scm_sample_partial():
+    cn = build_scm_linandpoly(seed=0)
+    n = 1000
+    random.seed(0)
+    sample_vars = cn.sample(n, ["X_0"]).columns
+    assert sample_vars[0] == "X_0" and len(sample_vars) == 1
+
+    sample_vars = cn.sample(n, ["X_2"]).columns
+    assert np.isin(["X_0", "X_1", "X_2"], sample_vars).all() and len(sample_vars) == 3
+
+
 def test_scm_sample():
     cn = build_scm_linandpoly(seed=0)
     n = 1000
@@ -127,7 +138,7 @@ def test_scm_dointervention():
     cn.undo_intervention()
     new_sample = cn.sample(n, seed=seed)
     diff = (standard_sample.mean(0) - new_sample.mean(0)).abs().values
-    assert (diff == 0.).all()
+    assert (diff == 0.0).all()
 
 
 def test_reproducibility():

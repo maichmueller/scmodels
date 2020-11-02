@@ -663,6 +663,9 @@ class SCM:
         queue = deque([var for var in self._filter_variable_names(variables)])
         while queue:
             nn = queue.popleft()
+            # this line appears to be pointless, but is necessary to emplace the node 'nn' in the dict with its current
+            # value, if already present, otherwise with the default value (0).
+            var_causal_priority[nn] = var_causal_priority[nn]
             if nn not in visited_nodes:
                 for parent in self.dag.predecessors(nn):
                     var_causal_priority[parent] = max(
