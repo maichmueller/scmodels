@@ -1,5 +1,5 @@
 # SCM
-![Python package](https://github.com/maichmueller/scm/workflows/Python%20package/badge.svg)
+![Ubuntu Tests (3.6|3.7|3.8)](https://github.com/maichmueller/scm/workflows/Ubuntu%20Tests%20(3.6%7C3.7%7C3.8)/badge.svg)
 
 A Python package implementing Structural Causal Models (SCM).
 
