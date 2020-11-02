@@ -56,7 +56,7 @@ def test_scm_sample():
     sample = manual_standard_sample(
         n, scm_sample.values.dtype, list(cn.dag.nodes), seed=0
     )
-    sample_order_scm = list(cn.get_variables())
+    sample_order_scm = cn.get_variables()
     sample = sample[sample_order_scm]
 
     expectation_scm = scm_sample.mean(0)
@@ -100,7 +100,7 @@ def test_scm_intervention():
         list(sample_iter(Normal("N", 5, 2), numsamples=n))
     ) + 3.3 * (sample[:, 0] + sample[:, 4])
     sample = pd.DataFrame(sample, columns=list(cn.dag.nodes))
-    manual_sample = sample[list(cn.get_variables())]
+    manual_sample = sample[cn.get_variables()]
 
     manual_mean = manual_sample.mean(0)
     scm_mean = scm_sample_interv.mean(0)
@@ -116,7 +116,7 @@ def test_scm_intervention():
 
     manual_sample = manual_standard_sample(
         n, scm_sample_interv.values.dtype, list(cn.dag.nodes), 0
-    )[list(cn.get_variables())]
+    )[cn.get_variables()]
     new_cn_sample = cn.sample(n)
     manual_mean = manual_sample.mean(0)
     scm_mean = new_cn_sample.mean(0)
@@ -147,3 +147,4 @@ def test_reproducibility():
     sample = cn.sample(n, seed=1)
     sample2 = cn.sample(n, seed=1)
     assert (sample.to_numpy() == sample2.to_numpy()).all()
+

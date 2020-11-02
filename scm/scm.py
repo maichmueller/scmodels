@@ -336,10 +336,6 @@ class SCM:
             the variables to intervene on.
         values : Sequence[float],
             the constant values the chosen variables should be set to.
-
-        Returns
-        -------
-            None
         """
         if len(variables) != len(values):
             raise ValueError(
@@ -357,8 +353,7 @@ class SCM:
         noise_models: Sequence[AnyRV],
     ):
         """
-        Perform hard interventions, i.e. setting specific variables to a constant value.
-        This method doesn't change the current noise neural_networks.
+        Perform noise interventions, i.e. modifying the noise generator of specific variables.
 
         Convenience wrapper around ``interventions`` method.
 
@@ -388,7 +383,8 @@ class SCM:
 
         Parameters
         ----------
-        variables: list-like, the variables to be undone.
+        variables: list-like,
+            the variables to be undone.
         """
         if variables is not None:
             present_variables = self._filter_variable_names(variables)
@@ -419,13 +415,13 @@ class SCM:
 
         Parameters
         ----------
-        x : Sequence,
+        x: Sequence,
             First set of nodes in ``G``.
 
-        y : Sequence,
+        y: Sequence,
             Second set of nodes in ``G``.
 
-        s : Sequence (optional),
+        s: Sequence (optional),
             Set of conditioning nodes in ``G``.
 
         Returns
@@ -503,7 +499,7 @@ class SCM:
             the dots per inch arg for matplotlib. Default is 150.
         alpha : (optional) float,
             the statistical significance level for the test. Default value is 0.05.
-        savefig_full_path: (opitional) str,
+        savefig_full_path: (optional) str,
             the full filepath to the, to which the plot should be saved. If not provided, the plot will not be saved.
         kwargs :
             arguments to be passed to the ``networkx.draw`` method. Check its documentation for a full list.
@@ -543,7 +539,8 @@ class SCM:
 
         Returns
         -------
-        str, the representation.
+        str,
+            the representation.
         """
         lines = [
             f"Structural Causal Model of {self.nr_variables} variables: "
@@ -563,9 +560,9 @@ class SCM:
 
     def get_variables(self, causal_order=True):
         if causal_order:
-            return self._causal_iterator()
+            return list(self._causal_iterator())
         else:
-            return self.dag.nodes
+            return list(self.dag.nodes)
 
     def _build_graph(self, functional_map):
         for (
@@ -625,7 +622,8 @@ class SCM:
 
         Returns
         -------
-        generator, generates the filtered variables in sequence.
+        generator,
+            generates the filtered variables in sequence.
         """
         for variable in variables:
             if variable in self.dag.nodes:
@@ -691,7 +689,8 @@ def sympify_assignment(
 
     Returns
     -------
-    function, the lambdified assignment.
+    function,
+        the lambdified assignment.
     """
 
     symbols = []
