@@ -28,10 +28,6 @@ def manual_standard_sample(n, dtype, names, seed):
     return sample
 
 
-def noise_studentt(n, seed=0):
-    return np.array(list(sample_iter(StudentT("", nu=1), numsamples=n)))
-
-
 def test_scm_build():
     cn = build_scm_simple()
     nodes_in_graph = sorted(cn.dag.nodes)
@@ -47,6 +43,9 @@ def test_scm_sample_partial():
 
     sample_vars = cn.sample(n, ["X_2"]).columns
     assert np.isin(["X_0", "X_1", "X_2"], sample_vars).all() and len(sample_vars) == 3
+
+    sample_vars = cn.sample(n, ["Y"]).columns
+    assert np.isin(["X_0", "X_1", "X_2", "Y"], sample_vars).all() and len(sample_vars) == 4
 
 
 def test_scm_sample():
