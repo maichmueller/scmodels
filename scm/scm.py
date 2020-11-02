@@ -13,7 +13,14 @@ from copy import deepcopy
 
 import sympy
 from sympy.functions import *
-from sympy.stats import sample_iter, FiniteRV, ContinuousRV, JointRV
+from sympy.stats import (
+    sample_iter,
+    FiniteRV,
+    ContinuousRV,
+    JointRV,
+    LogLogistic,
+    LogNormal,
+)
 
 from typing import (
     List,
@@ -55,11 +62,11 @@ class SCM:
     """
 
     def __init__(
-            self,
-            assignment_map: Mapping[Hashable, Tuple[Sequence[str], str, AnyRV]],
-            variable_tex_names: Dict = None,
-            seed: Optional[int] = None,
-            scm_name: str = "Structural Causal Model",
+        self,
+        assignment_map: Mapping[Hashable, Tuple[Sequence[str], str, AnyRV]],
+        variable_tex_names: Dict = None,
+        seed: Optional[int] = None,
+        scm_name: str = "Structural Causal Model",
     ):
         """
         Construct the SCM from an assignment map in dict form with the variables as keys and its assignment information
@@ -163,10 +170,10 @@ class SCM:
         return self.str()
 
     def sample(
-            self,
-            n: int,
-            variables: Optional[Sequence[Hashable]] = None,
-            seed: Optional[int] = None,
+        self,
+        n: int,
+        variables: Optional[Sequence[Hashable]] = None,
+        seed: Optional[int] = None,
     ):
         """
         Sample method to generate data for the given variables. If no list of variables is supplied, the method will
@@ -208,13 +215,14 @@ class SCM:
         return pd.DataFrame.from_dict(sample)
 
     def intervention(
-            self,
-            interventions: Dict[
-                Hashable,
-                Union[
-                    Dict, Tuple[Optional[Sequence[str]], Optional[str], Optional[AnyRV]],
-                ],
+        self,
+        interventions: Dict[
+            Hashable,
+            Union[
+                Dict,
+                Tuple[Optional[Sequence[str]], Optional[str], Optional[AnyRV]],
             ],
+        ],
     ):
         """
         Method to apply interventions on the specified variables.
@@ -249,10 +257,10 @@ class SCM:
 
             if isinstance(items, dict):
                 if any(
-                        (
-                                key not in ("parents", self.assignment_key, self.noise_key)
-                                for key in items.keys()
-                        )
+                    (
+                        key not in ("parents", self.assignment_key, self.noise_key)
+                        for key in items.keys()
+                    )
                 ):
                     raise ValueError(
                         f"Intervention dictionary provided with the wrong keys.\n"
@@ -273,7 +281,7 @@ class SCM:
                     items = items.flatten()
 
                 assert (
-                        len(items) == 3
+                    len(items) == 3
                 ), "The positional items container needs to contain exactly 3 items."
 
                 if items[0] is None:
@@ -282,11 +290,10 @@ class SCM:
                     parents = tuple(
                         par for par in self._filter_variable_names(items[0])
                     )
-                attr_dict = dict()
-                if items[1] is not None:
-                    attr_dict.update({self.assignment_key: items[1]})
-                if items[2] is not None:
-                    attr_dict.update({self.noise_key: items[2]})
+                attr_dict = {
+                    self.assignment_key: items[1],
+                    self.noise_key: items[2],
+                }
 
             else:
                 raise ValueError(
@@ -339,13 +346,15 @@ class SCM:
                 f"Got {len(variables)} variables, but {len(values)} values."
             )
 
-        interventions_dict: Dict[Hashable, Tuple[List, str, None]] = dict()
+        interventions_dict: Dict[Hashable, Tuple[List, str, AnyRV]] = dict()
         for var, val in zip(variables, values):
-            interventions_dict[var] = ([], str(val), None)
+            interventions_dict[var] = ([], str(val), FiniteRV("N", {0: 1}))
         self.intervention(interventions_dict)
 
     def soft_intervention(
-            self, variables: Sequence[Hashable], noise_models: Sequence[AnyRV],
+        self,
+        variables: Sequence[Hashable],
+        noise_models: Sequence[AnyRV],
     ):
         """
         Perform hard interventions, i.e. setting specific variables to a constant value.
@@ -402,7 +411,9 @@ class SCM:
             for parent in parents:
                 self.dag.add_edge(parent, var)
 
-    def d_separated(self, x: Sequence[str], y: Sequence[str], s: Optional[Sequence[str]] = None):
+    def d_separated(
+        self, x: Sequence[str], y: Sequence[str], s: Optional[Sequence[str]] = None
+    ):
         """
         Checks if all variables in X are d-separated from all variables in Y by the variables in S.
 
@@ -422,7 +433,9 @@ class SCM:
         bool,
             A boolean indicating whether x is d-separated from y by s.
         """
-        return nx.d_separated(self.dag, set(x), set(y), set(s) if s is not None else set())
+        return nx.d_separated(
+            self.dag, set(x), set(y), set(s) if s is not None else set()
+        )
 
     def is_dag(self):
         """
@@ -447,14 +460,14 @@ class SCM:
         random.seed(seed)
 
     def plot(
-            self,
-            draw_labels: bool = True,
-            node_size: int = 500,
-            figsize: Tuple[int, int] = (6, 4),
-            dpi: int = 150,
-            alpha: float = 0.5,
-            savefig_full_path: Optional[str] = None,
-            **kwargs,
+        self,
+        draw_labels: bool = True,
+        node_size: int = 500,
+        figsize: Tuple[int, int] = (6, 4),
+        dpi: int = 150,
+        alpha: float = 0.5,
+        savefig_full_path: Optional[str] = None,
+        **kwargs,
     ):
         """
         Plot the causal graph of the bayesian_graphs in a dependency oriented way.
@@ -556,8 +569,8 @@ class SCM:
 
     def _build_graph(self, functional_map):
         for (
-                node_name,
-                (parents_list, assignment_str, noise_model),
+            node_name,
+            (parents_list, assignment_str, noise_model),
         ) in functional_map.items():
             if len(parents_list) > 0:
                 for parent in parents_list:
@@ -568,11 +581,15 @@ class SCM:
             attr_dict = self._make_attr_dict(assignment_str, parents_list, noise_model)
 
             self.dag.add_node(
-                node_name, **attr_dict,
+                node_name,
+                **attr_dict,
             )
 
     def _make_attr_dict(
-            self, assignment_str: str, parents_list: Sequence[str], noise_model: AnyRV
+        self,
+        assignment_str: str,
+        parents_list: Sequence[str],
+        noise_model: Optional[AnyRV] = None,
     ):
         """
         Build the attributes dict for a node in the graph.
@@ -657,7 +674,9 @@ class SCM:
             yield key
 
 
-def sympify_assignment(assignment_str: str, parents: Sequence[str], noise_model: AnyRV):
+def sympify_assignment(
+    assignment_str: str, parents: Sequence[str], noise_model: Optional[AnyRV] = None
+):
     """
     Parse the provided assignment string with sympy and then lambdifies it, to be used as a normal function.
 
@@ -672,8 +691,10 @@ def sympify_assignment(assignment_str: str, parents: Sequence[str], noise_model:
     function, the lambdified assignment.
     """
 
+    symbols = []
     N = noise_model
-    symbols = [N]
+    if N is not None:
+        symbols.append(N)
     for par in parents:
         exec(f"{par} = sympy.Symbol('{par}')")
         symbols.append(eval(par))
@@ -702,17 +723,17 @@ def extract_rv_desc(rv: Union[ContinuousRV, FiniteRV]):
     -------
     str, the description.
     """
-    return str(rv.pspace.args[1])
+    return str(rv.pspace.args[1]).replace("Distribution", "")
 
 
 def hierarchy_pos(
-        graph: nx.Graph,
-        root=None,
-        width=1.0,
-        vert_gap=0.2,
-        vert_loc=0,
-        leaf_vs_root_factor=0.5,
-        check_for_tree=True,
+    graph: nx.Graph,
+    root=None,
+    width=1.0,
+    vert_gap=0.2,
+    vert_loc=0,
+    leaf_vs_root_factor=0.5,
+    check_for_tree=True,
 ):
     """
     If the graph is a tree this will return the positions to plot this in a
@@ -771,17 +792,17 @@ def hierarchy_pos(
             root = np.random.choice(list(graph.nodes))
 
     def __hierarchy_pos(
-            graph_,
-            root_,
-            leftmost_,
-            width_,
-            leaf_dx_=0.2,
-            vert_gap_=0.2,
-            vert_loc_=0,
-            xcenter_=0.5,
-            root_pos_=None,
-            leaf_pos_=None,
-            parent_=None,
+        graph_,
+        root_,
+        leftmost_,
+        width_,
+        leaf_dx_=0.2,
+        vert_gap_=0.2,
+        vert_loc_=0,
+        xcenter_=0.5,
+        root_pos_=None,
+        leaf_pos_=None,
+        parent_=None,
     ):
         """
         see hierarchy_pos docstring for most arguments
@@ -821,7 +842,9 @@ def hierarchy_pos(
                 )
                 leaf_count += new_leaves
 
-            leftmostchild = min((x for x, y in [leaf_pos_[child] for child in children]))
+            leftmostchild = min(
+                (x for x, y in [leaf_pos_[child] for child in children])
+            )
             rightmostchild = max(
                 (x for x, y in [leaf_pos_[child] for child in children])
             )
@@ -836,7 +859,11 @@ def hierarchy_pos(
     xcenter = width / 2.0
     if isinstance(graph, nx.DiGraph):
         leaf_count = len(
-            [node for node in nx.descendants(graph, root) if graph.out_degree(node) == 0]
+            [
+                node
+                for node in nx.descendants(graph, root)
+                if graph.out_degree(node) == 0
+            ]
         )
     elif isinstance(graph, nx.Graph):
         leaf_count = len(
@@ -847,7 +874,9 @@ def hierarchy_pos(
             ]
         )
     else:
-        raise ValueError("Passed graph is neither a networkx.DiGraph nor networkx.Graph.")
+        raise ValueError(
+            "Passed graph is neither a networkx.DiGraph nor networkx.Graph."
+        )
     root_pos, leaf_pos, leaf_count = __hierarchy_pos(
         graph,
         root,

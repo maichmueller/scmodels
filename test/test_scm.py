@@ -16,13 +16,13 @@ def manual_standard_sample(n, dtype, names, seed):
     sample[:, 1] = 1 + noise_func(n) + 2 * sample[:, 0] ** 2
     sample[:, 2] = 1 + noise_func(n) + 3 * sample[:, 0] + 2 * sample[:, 1]
     sample[:, 3] = (
-            noise_func(n)
-            + sample[:, 1]
-            + 0.5 * np.sqrt(np.abs(sample[:, 1]))
-            + 4 * np.log(np.abs(sample[:, 2]))
+        noise_func(n)
+        + sample[:, 1]
+        + 0.5 * np.sqrt(np.abs(sample[:, 1]))
+        + 4 * np.log(np.abs(sample[:, 2]))
     )
     sample[:, 4] = (
-            noise_func(n) + Polynomial([0, 0, 0.05])(sample[:, 0]) + 2 * sample[:, 2]
+        noise_func(n) + Polynomial([0, 0, 0.05])(sample[:, 0]) + 2 * sample[:, 2]
     )
     sample = pd.DataFrame(sample, columns=names)
     return sample
@@ -82,9 +82,9 @@ def test_scm_intervention():
     sample[:, 1] = 1 + noise_func(n) + 2 * sample[:, 0] ** 2
     sample[:, 2] = 1 + noise_func(n) + 3 * sample[:, 0] + 2 * sample[:, 1]
     sample[:, 4] = (
-            noise_func(n)
-            + Polynomial([0, 0, 0.05])(sample[:, 0])
-            + Polynomial([0, 2])(sample[:, 2])
+        noise_func(n)
+        + Polynomial([0, 0, 0.05])(sample[:, 0])
+        + Polynomial([0, 2])(sample[:, 2])
     )
     sample[:, 3] = np.asarray(
         list(sample_iter(Normal("N", 5, 2), numsamples=n))
@@ -112,6 +112,22 @@ def test_scm_intervention():
     scm_mean = new_cn_sample.mean(0)
     exp_diff = (manual_mean - scm_mean).abs().values
     assert (exp_diff < 1e-1).all()
+
+
+def test_scm_dointervention():
+    seed = 0
+    cn = build_scm_linandpoly(seed=seed)
+    n = 100
+    standard_sample = cn.sample(n, seed=seed)
+    # do the intervention
+    cn.do_intervention(["X_2"], [4])
+    sample = cn.sample(n)
+    assert (sample["X_2"] == 4).all()
+    # from here on the cn should work as normal again
+    cn.undo_intervention()
+    new_sample = cn.sample(n, seed=seed)
+    diff = (standard_sample.mean(0) - new_sample.mean(0)).abs().values
+    assert (diff == 0.).all()
 
 
 def test_reproducibility():
