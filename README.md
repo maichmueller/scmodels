@@ -3,7 +3,7 @@
 
 A Python package implementing Structural Causal Models (SCM).
 
-The library uses the CAS library [SymPy](https://github.com/sympy/sympy) to allow the user to state arbitrary assignmnent functions and noise distributions as supported by SymPy and builds the DAG with [networkx](https://github.com/networkx/networkx).
+The library uses the CAS library [SymPy](https://github.com/sympy/sympy) to allow the user to state arbitrary assignment functions and noise distributions as supported by SymPy and builds the DAG with [networkx](https://github.com/networkx/networkx).
 
 It supports the features:
   - Sampling
@@ -23,7 +23,7 @@ python setup.py install
 
 To build the DAG
 
-![Y \leftarrow Z \rightarrow X](https://latex.codecogs.com/svg.latex?&space;Y{\leftarrow}{Z}{\rightarrow}X)
+![X \rightarrow Y \leftarrow Z \rightarrow X](https://latex.codecogs.com/svg.latex?&space;{X}{\leftarrow}{Y}{\leftarrow}{Z}{\rightarrow}X)
 
 
 with the assignments
