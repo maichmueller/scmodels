@@ -23,7 +23,7 @@ python setup.py install
 
 To build the DAG
 
-![X \rightarrow Y \leftarrow Z \rightarrow X](https://latex.codecogs.com/svg.latex?&space;{X}{\leftarrow}{Y}{\leftarrow}{Z}{\rightarrow}X)
+![X \rightarrow Y \leftarrow Z \rightarrow X](https://latex.codecogs.com/svg.latex?&space;X{\rightarrow}{Y}{\leftarrow}{Z}{\rightarrow}X)
 
 
 with the assignments
@@ -89,4 +89,11 @@ myscm.sample(5)
 3  1  26.286726  55.666348
 4  1   1.870452   6.657642
 ```
+If you have graphviz installed, you can also use it to plot the graph in an easy manner
+```python
+import matplotlib.pyplot as plt
 
+myscm.plot(node_size=1000, alpha=1)
+plt.show()
+```
+![Plot example](docs/images/plot.png)
