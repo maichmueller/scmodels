@@ -13,6 +13,7 @@ requirements = [
     "sympy>=1.6",
     "networkx>=2.0",
     "pandas>=1.0",
+    "scipy",
     "numpy",
     "matplotlib>=3.0",
 ]
