@@ -141,7 +141,7 @@ class SCM:
             # the variable names as they can be used by the plot function to draw the names in TeX mode.
             self.var_draw_dict: Dict = variable_tex_names
         else:
-            self.var_draw_dict = dict()
+            self.var_draw_dict = {name: name for name in self.var}
 
         # the attribute list that any given node in the graph has.
         (
@@ -462,7 +462,7 @@ class SCM:
         figsize: Tuple[int, int] = (6, 4),
         dpi: int = 150,
         alpha: float = 0.5,
-        savefig_full_path: Optional[str] = None,
+        savepath: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -499,7 +499,7 @@ class SCM:
             the dots per inch arg for matplotlib. Default is 150.
         alpha : (optional) float,
             the statistical significance level for the test. Default value is 0.05.
-        savefig_full_path: (optional) str,
+        savepath: (optional) str,
             the full filepath to the, to which the plot should be saved. If not provided, the plot will not be saved.
         kwargs :
             arguments to be passed to the ``networkx.draw`` method. Check its documentation for a full list.
@@ -523,8 +523,8 @@ class SCM:
             alpha=alpha,
             **kwargs,
         )
-        if savefig_full_path is not None:
-            plt.savefig(savefig_full_path)
+        if savepath is not None:
+            plt.savefig(savepath)
 
     def str(self):
         """
