@@ -453,7 +453,8 @@ class SCM:
             The seed to use for rng.
         """
         self.seed = seed
-        random.seed(seed)
+        # for now this is how sympy needs to be seeded. Awaiting changes in the next version of sympy.
+        np.random.seed(seed)
 
     def plot(
         self,

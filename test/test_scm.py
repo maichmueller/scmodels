@@ -79,7 +79,7 @@ def test_scm_intervention():
             }
         }
     )
-    n = 1000
+    n = 100
 
     scm_sample_interv = cn.sample(n)
     sample = np.empty((n, 5), dtype=scm_sample_interv.values.dtype)
