@@ -1,10 +1,6 @@
 name: Ubuntu Tests (3.6|3.7|3.8)
 
-on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+on: push
 
 jobs:
   build:

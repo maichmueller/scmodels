@@ -53,7 +53,7 @@ def test_scm_from_strings():
         ]
     )
     assert np.isin(scm.get_variables(), ["X", "Y_0", "Y_1", "Z"]).all()
-    
+
 
 def test_scm_build():
     cn = build_scm_simple()
