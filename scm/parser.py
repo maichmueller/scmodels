@@ -26,7 +26,7 @@ all_stats_imports = set(all_stats_imports)
 
 
 def parse_assignments(assignment_strs: List[str]):
-    var_p = regex.compile(r"(?<=([(]|[[)*+-/%]))\w+(?=([)*+-/%]+|$))")
+    var_p = regex.compile(r"(?<=([(]|[)*+-/%]))\w+(?=([)*+-/%]+|$))")
     digit_p = regex.compile(r"^\d+$")
 
     functional_map = dict()
