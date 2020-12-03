@@ -4,7 +4,7 @@ from sympy.stats import *
 
 def build_scm_simple(seed=0):
     cn = SCM(
-        assignment_map={
+        assignments={
             "X_0": ([], "N", Normal("N", 0, 1),),
             "X_1": (["X_0"], "1 + X_0 + N", Normal("N", 0, 1),),
             "X_2": (["X_0"], "1 + 3*X_0 + N", Normal("N", 0, 1),),
@@ -28,7 +28,7 @@ def build_scm_simple(seed=0):
 
 def build_scm_medium(seed=0):
     cn = SCM(
-        assignment_map={
+        assignments={
             "X_0": ([], "N", Normal("N", 0, 1),),
             "X_1": (["X_0"], "N + 1 + X_0", Normal("N", 0, 1),),
             "X_2": (["X_0", "X_1"], "N + 1 + 0.8 X_0 - 1.2 * X_1", Normal("N", 0, 1),),
@@ -51,7 +51,7 @@ def build_scm_medium(seed=0):
 
 def build_scm_linandpoly(seed=0):
     cn = SCM(
-        assignment_map={
+        assignments={
             "X_0": ([], "N", Normal("N", 0, 1)),
             "X_1": (["X_0"], "N + 1 + 2 * X_0 ** 2", Normal("N", 0, 1)),
             "X_2": (["X_0", "X_1"], "N + 1 + 3 * X_0 + 2 * X_1", Normal("N", 0, 1)),

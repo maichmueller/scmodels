@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from numpy.polynomial.polynomial import Polynomial
 from test.build_scm import *
+from scm.parser import parse_assignments
 
 
 def manual_standard_sample(n, dtype, names, seed):
@@ -16,17 +17,43 @@ def manual_standard_sample(n, dtype, names, seed):
     sample[:, 1] = 1 + noise_func(n) + 2 * sample[:, 0] ** 2
     sample[:, 2] = 1 + noise_func(n) + 3 * sample[:, 0] + 2 * sample[:, 1]
     sample[:, 3] = (
-        noise_func(n)
-        + sample[:, 1]
-        + 0.5 * np.sqrt(np.abs(sample[:, 1]))
-        + 4 * np.log(np.abs(sample[:, 2]))
+            noise_func(n)
+            + sample[:, 1]
+            + 0.5 * np.sqrt(np.abs(sample[:, 1]))
+            + 4 * np.log(np.abs(sample[:, 2]))
     )
     sample[:, 4] = (
-        noise_func(n) + Polynomial([0, 0, 0.05])(sample[:, 0]) + 2 * sample[:, 2]
+            noise_func(n) + Polynomial([0, 0, 0.05])(sample[:, 0]) + 2 * sample[:, 2]
     )
     sample = pd.DataFrame(sample, columns=names)
     return sample
 
+
+def test_parsing():
+    func_map = parse_assignments(["Z_1 = Noise + 2*log(Y), Noise ~ Normal(0,1)"])
+    assert list(func_map.keys()) == ["Z_1"]
+    assert func_map["Z_1"][0] == ["Y"]
+    assert func_map["Z_1"][1] == "Noise + 2*log(Y)"
+    assert str(func_map["Z_1"][2]) == "Noise"
+
+    func_map = parse_assignments(["X = N + sqrt(X_45 ** M + 342 * 2) / (  43 * FG_2) + P, N ~ Normal(0,1)"])
+    assert list(func_map.keys()) == ["X"]
+    assert func_map["X"][0] == ["X_45", "M", "FG_2", "P"]
+    assert func_map["X"][1] == "N + sqrt(X_45 ** M + 342 * 2) / (  43 * FG_2) + P"
+    assert str(func_map["X"][2]) == "N"
+
+
+def test_scm_from_strings():
+    scm = SCM(
+        [
+            "X = N, N ~ Normal(0,1)",
+            "Y_0 = M + 2 * exp(X), M ~ StudentT(2)",
+            "Y_1 = M + 2 * exp(sqrt(X)), M ~ Normal(0, 0.1)",
+            "Z = P * sqrt(Y_0), P ~ Exponential(5.3)",
+        ]
+    )
+    assert np.isin(scm.get_variables(), ["X", "Y_0", "Y_1", "Z"]).all()
+    
 
 def test_scm_build():
     cn = build_scm_simple()
@@ -92,9 +119,9 @@ def test_scm_intervention():
     sample[:, 1] = 1 + noise_func(n) + 2 * sample[:, 0] ** 2
     sample[:, 2] = 1 + noise_func(n) + 3 * sample[:, 0] + 2 * sample[:, 1]
     sample[:, 4] = (
-        noise_func(n)
-        + Polynomial([0, 0, 0.05])(sample[:, 0])
-        + Polynomial([0, 2])(sample[:, 2])
+            noise_func(n)
+            + Polynomial([0, 0, 0.05])(sample[:, 0])
+            + Polynomial([0, 2])(sample[:, 2])
     )
     sample[:, 3] = np.asarray(
         list(sample_iter(Normal("N", 5, 2), numsamples=n))
@@ -147,4 +174,3 @@ def test_reproducibility():
     sample = cn.sample(n, seed=1)
     sample2 = cn.sample(n, seed=1)
     assert (sample.to_numpy() == sample2.to_numpy()).all()
-

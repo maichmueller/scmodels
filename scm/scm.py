@@ -1,3 +1,6 @@
+
+from scm.parser import parse_assignments
+
 import random
 import warnings
 
@@ -39,6 +42,7 @@ from typing import (
 )
 
 AnyRV = Union[ContinuousRV, FiniteRV, JointRV]
+AssignmentMap = Mapping[Hashable, Tuple[Sequence[str], str, AnyRV]]
 
 
 class SCM:
@@ -63,7 +67,7 @@ class SCM:
 
     def __init__(
         self,
-        assignment_map: Mapping[Hashable, Tuple[Sequence[str], str, AnyRV]],
+        assignments: Union[AssignmentMap, List[str]],
         variable_tex_names: Dict = None,
         seed: Optional[int] = None,
         scm_name: str = "Structural Causal Model",
@@ -123,15 +127,19 @@ class SCM:
         scm_name: (optional) str,
             The name of the SCM. Default is 'Structural Causal Model'.
         """
+        if isinstance(assignments, list):
+            assignments = parse_assignments(assignments)
+        elif not isinstance(assignments, dict):
+            raise ValueError("Assignments parameter accepts either a list or a dictionary.")
 
         self.scm_name: str = scm_name
         self.seed = seed
         self.reseed(seed)
         # the root variables which are causally happening at first.
         self.roots: List = []
-        self.nr_variables: int = len(assignment_map)
+        self.nr_variables: int = len(assignments)
 
-        self.var = np.array(list(assignment_map.keys()))
+        self.var = np.array(list(assignments.keys()))
         # supply any variable name, that has not been assigned a different TeX name, with itself as TeX name.
         # This prevents missing labels in the plot method.
         if variable_tex_names is not None:
@@ -161,7 +169,7 @@ class SCM:
         # any node will be given the attributes of function and noise to later sample from and also an incoming edge
         # from its causal parent. We will store the causal root nodes separately.
         self.dag = nx.DiGraph()
-        self._build_graph(assignment_map)
+        self._build_graph(assignments)
 
     def __getitem__(self, node):
         return self.dag.pred[node], self.dag.nodes[node]
@@ -443,6 +451,10 @@ class SCM:
         """
         return nx.is_directed_acyclic_graph(self.dag)
 
+    def add_variables(self):
+        # TODO: Return to this.
+        pass
+
     def reseed(self, seed: int):
         """
         Seeds the assignments.
@@ -551,11 +563,13 @@ class SCM:
         ]
         max_var_space = max([len(var_name) for var_name in self.var])
         for node in self.dag.nodes:
-            parents_var = ["N"] + [pred for pred in self.dag.predecessors(node)]
+            attr_dict = self[node][1]
+            noise_symbol = str(attr_dict[self.noise_key])
+            parents_var = [noise_symbol] + [pred for pred in self.dag.predecessors(node)]
             args_str = ", ".join(parents_var)
-            line = f"{str(node).rjust(max_var_space)} := f({args_str}) = {self.dag.nodes[node][self.assignment_repr_key]}"
+            line = f"{str(node).rjust(max_var_space)} := f({args_str}) = {attr_dict[self.assignment_repr_key]}"
             # add explanation to the noise term
-            line += f"\t [ N := {str(self.dag.nodes[node][self.noise_repr_key])} ]"
+            line += f"\t [ {noise_symbol} ~ {str(attr_dict[self.noise_repr_key])} ]"
             lines.append(line)
         return "\n".join(lines)
 
@@ -610,7 +624,8 @@ class SCM:
         }
         return attr_dict
 
-    def _filter_variable_names(self, variables: Iterable):
+    @staticmethod
+    def _filter_variable_names(variables: Iterable, dag: nx.DiGraph):
         """
         Filter out variable names, that are not currently in the graph. Warn for each variable that wasn't present.
 
@@ -627,14 +642,14 @@ class SCM:
             generates the filtered variables in sequence.
         """
         for variable in variables:
-            if variable in self.dag.nodes:
+            if variable in dag.nodes:
                 yield variable
             else:
                 logging.warning(
                     f"Variable '{variable}' not found in graph. Omitting it."
                 )
 
-    def _causal_iterator(self, variables: Optional[Iterable] = None):
+    def _causal_iterator(self, variables: Optional[Iterable] = None, dag: Optional[nx.DiGraph] = None):
         """
         Provide a causal iterator through the graph starting from the roots going to the variables needed.
 
@@ -653,20 +668,22 @@ class SCM:
             the node object used to denote nodes in the graph in causal order. These are usually str or ints, but can be
             any hashable type passable to a dict.
         """
+        if dag is None:
+            dag = self.dag
         if variables is None:
-            for node in nx.topological_sort(self.dag):
+            for node in nx.topological_sort(dag):
                 yield node
             return
         visited_nodes: Set = set()
         var_causal_priority: Dict = defaultdict(int)
-        queue = deque([var for var in self._filter_variable_names(variables)])
+        queue = deque([var for var in self._filter_variable_names(variables, dag)])
         while queue:
             nn = queue.popleft()
             # this line appears to be pointless, but is necessary to emplace the node 'nn' in the dict with its current
             # value, if already present, otherwise with the default value (0).
             var_causal_priority[nn] = var_causal_priority[nn]
             if nn not in visited_nodes:
-                for parent in self.dag.predecessors(nn):
+                for parent in dag.predecessors(nn):
                     var_causal_priority[parent] = max(
                         var_causal_priority[parent], var_causal_priority[nn] + 1
                     )
@@ -677,7 +694,7 @@ class SCM:
 
 
 def sympify_assignment(
-    assignment_str: str, parents: Sequence[str], noise_model: Optional[AnyRV] = None
+    assignment_str: str, parents: Sequence[str], noise_model: AnyRV
 ):
     """
     Parse the provided assignment string with sympy and then lambdifies it, to be used as a normal function.
@@ -695,13 +712,13 @@ def sympify_assignment(
     """
 
     symbols = []
-    N = noise_model
-    if N is not None:
-        symbols.append(N)
+    noise = noise_model
+    symbols.append(noise_model)
     for par in parents:
         exec(f"{par} = sympy.Symbol('{par}')")
         symbols.append(eval(par))
-
+    # let the noise models variable name be known as symbol. This is necessary for sympifying.
+    exec(f"{str(noise_model)} = noise_model")
     assignment = sympy.sympify(eval(assignment_str))
     try:
         assignment = sympy.lambdify(symbols, assignment, "numpy")
@@ -711,7 +728,7 @@ def sympify_assignment(
             f"Lambdifying without numpy.",
         )
         assignment = sympy.lambdify(symbols, assignment)
-    return N, assignment
+    return noise_model, assignment
 
 
 def extract_rv_desc(rv: Union[ContinuousRV, FiniteRV]):
@@ -901,3 +918,5 @@ def hierarchy_pos(
     for node in pos:
         pos[node] = (pos[node][0] * width / xmax, pos[node][1])
     return pos
+
+
