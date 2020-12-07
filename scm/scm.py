@@ -16,7 +16,7 @@ from copy import deepcopy
 import sympy
 from sympy.functions import *
 from sympy.stats import (
-    sample_iter,
+    sample,
     FiniteRV,
     ContinuousRV,
     JointRV,
@@ -147,6 +147,7 @@ class SCM:
 
         self.scm_name: str = scm_name
         self.seed = seed
+        self.rng_state = np.random.default_rng()  # as standard we always have a local RNG machine
         self.reseed(seed)
         # the root variables which are causally happening at first.
         self.roots: List = []
@@ -215,9 +216,9 @@ class SCM:
         pd.DataFrame,
             the dataframe containing the samples of all the variables needed for the selection.
         """
-        if seed is not None:
-            self.reseed(seed)
-        sample = dict()
+
+        self.reseed(seed)
+        samples = dict()
 
         for node in self._causal_iterator(variables):
             node_attr = self.dag.nodes[node]
@@ -225,15 +226,15 @@ class SCM:
             arg_positions = node_attr[self.arg_positions_key]
             predecessors = list(self.dag.predecessors(node))
             noise = np.array(
-                list(sample_iter(node_attr[self.noise_key], numsamples=n)), dtype=float
+                list(sample(node_attr[self.noise_key], numsamples=n, seed=self.rng_state)), dtype=float
             )
             args = [None] * len(predecessors)
             for pred in predecessors:
-                args[arg_positions[pred] - 1] = sample[pred]
+                args[arg_positions[pred] - 1] = samples[pred]
 
             data = node_attr[self.assignment_key](noise, *args)
-            sample[node] = data
-        return pd.DataFrame.from_dict(sample)
+            samples[node] = data
+        return pd.DataFrame.from_dict(samples)
 
     def intervention(
             self,
@@ -468,7 +469,7 @@ class SCM:
         # TODO: Return to this.
         pass
 
-    def reseed(self, seed: int):
+    def reseed(self, seed: Optional[Union[int, np.random.Generator]]):
         """
         Seeds the assignments.
 
@@ -477,9 +478,9 @@ class SCM:
         seed: int,
             The seed to use for rng.
         """
-        self.seed = seed
-        # for now this is how sympy needs to be seeded. Awaiting changes in the next version of sympy.
-        np.random.seed(seed)
+        if seed is not None:
+            self.seed = seed
+            self.rng_state = np.random.default_rng(seed=seed)
 
     def plot(
             self,
