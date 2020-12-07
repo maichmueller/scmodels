@@ -2,9 +2,9 @@
 
 | OS        |  Status |
 | :-------------: |:-------------:|
-| Linux       | ![Linux 3.7/3.8/3.9](https://github.com/maichmueller/scm/workflows/Linux%203.7/3.8/3.9/badge.svg)    |
-| Windows | ![Win 3.7/3.8/3.9](https://github.com/maichmueller/scm/workflows/Win%203.7/3.8/3.9/badge.svg) | 
-| Mac | ![Mac  3.7/3.8/3.9](https://github.com/maichmueller/scm/workflows/Mac%203.7/3.8/3.9/badge.svg) |
+| Linux       | ![L Py 3.7 - 3.9](https://github.com/maichmueller/scm/workflows/L%20Py%203.7%20-%203.9/badge.svg)    |
+| Windows | ![W Py 3.7 - 3.9](https://github.com/maichmueller/scm/workflows/W%20Py%203.7%20-%203.9/badge.svg) | 
+| Mac | ![M Py 3.7 - 3.9](https://github.com/maichmueller/scm/workflows/M%20Py%203.7%20-%203.9/badge.svg) |
 
 A Python package implementing Structural Causal Models (SCM).
 
