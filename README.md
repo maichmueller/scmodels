@@ -5,6 +5,7 @@
 | Linux       | ![Linux 3.7/3.8/3.9](https://github.com/maichmueller/scm/workflows/Linux%203.7/3.8/3.9/badge.svg)    |
 | Windows | ![Win 3.7/3.8/3.9](https://github.com/maichmueller/scm/workflows/Win%203.7/3.8/3.9/badge.svg) | 
 | Mac | ![Mac  3.7/3.8/3.9](https://github.com/maichmueller/scm/workflows/Mac%203.7/3.8/3.9/badge.svg) |
+
 A Python package implementing Structural Causal Models (SCM).
 
 The library uses the CAS library [SymPy](https://github.com/sympy/sympy) to allow the user to state arbitrary assignment functions and noise distributions as supported by SymPy and builds the DAG with [networkx](https://github.com/networkx/networkx).
