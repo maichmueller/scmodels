@@ -1,6 +1,6 @@
 # SCM
 
-| PyTest        |  OS |
+| OS        |  Status |
 | :-------------: |:-------------:|
 | Linux       | ![Linux 3.7/3.8/3.9](https://github.com/maichmueller/scm/workflows/Linux%203.7/3.8/3.9/badge.svg)    |
 | Windows | ![Win 3.7/3.8/3.9](https://github.com/maichmueller/scm/workflows/Win%203.7/3.8/3.9/badge.svg) | 
