@@ -16,6 +16,8 @@ It supports the features:
   - Plotting
   - Printing
   
+ and by extension all methods on a DAG provided by networkx after accessing the member variable dag
+  
 # Installation
 Git clone the repository and run the setup.py file
 ```

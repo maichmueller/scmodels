@@ -1,4 +1,3 @@
-
 from scm.parser import parse_assignments
 
 import random
@@ -66,15 +65,16 @@ class SCM:
     """
 
     def __init__(
-        self,
-        assignments: Union[AssignmentMap, List[str]],
-        variable_tex_names: Dict = None,
-        seed: Optional[int] = None,
-        scm_name: str = "Structural Causal Model",
+            self,
+            assignments: Union[AssignmentMap, Sequence[str]],
+            variable_tex_names: Optional[Dict] = None,
+            seed: Optional[int] = None,
+            scm_name: str = "Structural Causal Model",
     ):
         """
-        Construct the SCM from an assignment map in dict form with the variables as keys and its assignment information
-        as tuple of parents, assignment, and noise distribution.
+        Construct the SCM from an assignment map with the variables as keys and its assignment information
+        as tuple of parents, assignment, and noise distribution or provide the assignments in a list of strings, which
+        directly tell
 
         Notes
         -----
@@ -82,7 +82,15 @@ class SCM:
 
         Examples
         --------
-        >>> functional_map = {
+        To set up 3 variables of the form
+
+        .. math:: X_0 = LogListic(1, 1)
+        .. math:: X_1 = 3 (X_0)^2 + Normal(1, 0.5)
+        .. math::   Y = 2 * X_0 - sqrt(X_1) + Normal(2, 1)
+
+        we can either build an assignment map
+
+        >>> assignment = {
         ...     "X_zero": (
         ...         [],
         ...         "N",
@@ -91,7 +99,7 @@ class SCM:
         ...     "X_1": (
         ...         ["X_zero"],
         ...         "N * 3 * X_zero ** 2",
-        ...         LogNormal("N", mu=1, sigma=0.5),
+        ...         LogNormal("N", mean=1, std=1),
         ...     "Y": (
         ...         ["X_zero", "X_1"],
         ...         "N + 2 * X_zero + sqrt(X_1)",
@@ -99,16 +107,21 @@ class SCM:
         ...     ),
         ... }
 
-        This sets up 3 variables of the form:
-
-        .. math:: X_0 = LogListic(1, 1)
-        .. math:: X_1 = 3 (X_0)^2 + Normal(1, 0.5)
-        .. math::   Y = 2 * X_0 - sqrt(X_1) + Normal(2, 1)
-
-        To initialize the scm with this functional map:
+        to initialize the scm with it
 
         >>> causal_net = SCM(
         ...     assignment_map=functional_map,
+        ...     variable_tex_names={"X_zero": "$X_{zero}$", "X_1": "$X_1$"}
+        ... )
+
+        or we can build the SCM directly from assignment strings
+
+        >>> causal_net = SCM(
+        ...     [
+        ...         "X_zero = N, N ~ LogLogistic(alpha=1, beta=1)",
+        ...         "X_1 = N * 3 * X_zero ** 2, N ~ LogNormal(mean=1, std=1)",
+        ...         "Y = N + 2 * X_zero + sqrt(X_1), N ~ Normal(mean=2, std=1)"
+        ...     ],
         ...     variable_tex_names={"X_zero": "$X_{zero}$", "X_1": "$X_1$"}
         ... )
 
@@ -127,10 +140,10 @@ class SCM:
         scm_name: (optional) str,
             The name of the SCM. Default is 'Structural Causal Model'.
         """
-        if isinstance(assignments, list):
+        if isinstance(assignments, Sequence):
             assignments = parse_assignments(assignments)
-        elif not isinstance(assignments, dict):
-            raise ValueError("Assignments parameter accepts either a list or a dictionary.")
+        elif not isinstance(assignments, AssignmentMap):
+            raise ValueError("Assignments parameter accepts either a Sequence[str] or an AssignmentMap.")
 
         self.scm_name: str = scm_name
         self.seed = seed
@@ -178,10 +191,10 @@ class SCM:
         return self.str()
 
     def sample(
-        self,
-        n: int,
-        variables: Optional[Sequence[Hashable]] = None,
-        seed: Optional[int] = None,
+            self,
+            n: int,
+            variables: Optional[Sequence[Hashable]] = None,
+            seed: Optional[int] = None,
     ):
         """
         Sample method to generate data for the given variables. If no list of variables is supplied, the method will
@@ -223,14 +236,14 @@ class SCM:
         return pd.DataFrame.from_dict(sample)
 
     def intervention(
-        self,
-        interventions: Dict[
-            Hashable,
-            Union[
-                Dict,
-                Tuple[Optional[Sequence[str]], Optional[str], Optional[AnyRV]],
+            self,
+            interventions: Dict[
+                Hashable,
+                Union[
+                    Dict,
+                    Tuple[Optional[Sequence[str]], Optional[str], Optional[AnyRV]],
+                ],
             ],
-        ],
     ):
         """
         Method to apply interventions on the specified variables.
@@ -265,10 +278,10 @@ class SCM:
 
             if isinstance(items, dict):
                 if any(
-                    (
-                        key not in ("parents", self.assignment_key, self.noise_key)
-                        for key in items.keys()
-                    )
+                        (
+                                key not in ("parents", self.assignment_key, self.noise_key)
+                                for key in items.keys()
+                        )
                 ):
                     raise ValueError(
                         f"Intervention dictionary provided with the wrong keys.\n"
@@ -289,7 +302,7 @@ class SCM:
                     items = items.flatten()
 
                 assert (
-                    len(items) == 3
+                        len(items) == 3
                 ), "The positional items container needs to contain exactly 3 items."
 
                 if items[0] is None:
@@ -356,9 +369,9 @@ class SCM:
         self.intervention(interventions_dict)
 
     def soft_intervention(
-        self,
-        variables: Sequence[Hashable],
-        noise_models: Sequence[AnyRV],
+            self,
+            variables: Sequence[Hashable],
+            noise_models: Sequence[AnyRV],
     ):
         """
         Perform noise interventions, i.e. modifying the noise generator of specific variables.
@@ -416,7 +429,7 @@ class SCM:
                 self.dag.add_edge(parent, var)
 
     def d_separated(
-        self, x: Sequence[str], y: Sequence[str], s: Optional[Sequence[str]] = None
+            self, x: Sequence[str], y: Sequence[str], s: Optional[Sequence[str]] = None
     ):
         """
         Checks if all variables in X are d-separated from all variables in Y by the variables in S.
@@ -469,14 +482,14 @@ class SCM:
         np.random.seed(seed)
 
     def plot(
-        self,
-        draw_labels: bool = True,
-        node_size: int = 500,
-        figsize: Tuple[int, int] = (6, 4),
-        dpi: int = 150,
-        alpha: float = 0.5,
-        savepath: Optional[str] = None,
-        **kwargs,
+            self,
+            draw_labels: bool = True,
+            node_size: int = 500,
+            figsize: Tuple[int, int] = (6, 4),
+            dpi: int = 150,
+            alpha: float = 0.5,
+            savepath: Optional[str] = None,
+            **kwargs,
     ):
         """
         Plot the causal graph of the bayesian_graphs in a dependency oriented way.
@@ -581,8 +594,8 @@ class SCM:
 
     def _build_graph(self, functional_map):
         for (
-            node_name,
-            (parents_list, assignment_str, noise_model),
+                node_name,
+                (parents_list, assignment_str, noise_model),
         ) in functional_map.items():
             if len(parents_list) > 0:
                 for parent in parents_list:
@@ -598,10 +611,10 @@ class SCM:
             )
 
     def _make_attr_dict(
-        self,
-        assignment_str: str,
-        parents_list: Sequence[str],
-        noise_model: Optional[AnyRV] = None,
+            self,
+            assignment_str: str,
+            parents_list: Sequence[str],
+            noise_model: Optional[AnyRV] = None,
     ):
         """
         Build the attributes dict for a node in the graph.
@@ -694,7 +707,7 @@ class SCM:
 
 
 def sympify_assignment(
-    assignment_str: str, parents: Sequence[str], noise_model: AnyRV
+        assignment_str: str, parents: Sequence[str], noise_model: AnyRV
 ):
     """
     Parse the provided assignment string with sympy and then lambdifies it, to be used as a normal function.
@@ -747,13 +760,13 @@ def extract_rv_desc(rv: Union[ContinuousRV, FiniteRV]):
 
 
 def hierarchy_pos(
-    graph: nx.Graph,
-    root=None,
-    width=1.0,
-    vert_gap=0.2,
-    vert_loc=0,
-    leaf_vs_root_factor=0.5,
-    check_for_tree=True,
+        graph: nx.Graph,
+        root=None,
+        width=1.0,
+        vert_gap=0.2,
+        vert_loc=0,
+        leaf_vs_root_factor=0.5,
+        check_for_tree=True,
 ):
     """
     If the graph is a tree this will return the positions to plot this in a
@@ -812,17 +825,17 @@ def hierarchy_pos(
             root = np.random.choice(list(graph.nodes))
 
     def __hierarchy_pos(
-        graph_,
-        root_,
-        leftmost_,
-        width_,
-        leaf_dx_=0.2,
-        vert_gap_=0.2,
-        vert_loc_=0,
-        xcenter_=0.5,
-        root_pos_=None,
-        leaf_pos_=None,
-        parent_=None,
+            graph_,
+            root_,
+            leftmost_,
+            width_,
+            leaf_dx_=0.2,
+            vert_gap_=0.2,
+            vert_loc_=0,
+            xcenter_=0.5,
+            root_pos_=None,
+            leaf_pos_=None,
+            parent_=None,
     ):
         """
         see hierarchy_pos docstring for most arguments
@@ -918,5 +931,3 @@ def hierarchy_pos(
     for node in pos:
         pos[node] = (pos[node][0] * width / xmax, pos[node][1])
     return pos
-
-
