@@ -41,11 +41,25 @@ with the assignments
 
 ![Y = 2Z + \sqrt{X} + N](https://latex.codecogs.com/svg.latex?&space;Y=2Z+\sqrt{X}+N\quad[N=\text{Normal}(\mu=2,\sigma=1)])
 
-do the following
+one can describe the assignments as strings
 
 ```python
 from scm import SCM
-from sympy.stats import sample_iter, LogLogistic, LogNormal, Normal
+
+myscm = SCM(
+    [
+        "Z = N, N ~ LogLogistic(alpha=1, beta=1)", 
+        "X = N * 3 * Z ** 2, N ~ LogNormal(mean=1, std=1)", 
+        "Y = N + 2 * Z + sqrt(X), N ~ Normal(mean=2, std=1)"
+    ]   
+)
+```
+
+or build the assignments piecewise themselves via an assignment map
+
+```python
+from scm import SCM
+from sympy.stats import LogLogistic, LogNormal, Normal
 
 
 functional_map = {
