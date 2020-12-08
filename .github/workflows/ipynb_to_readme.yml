@@ -21,7 +21,8 @@ jobs:
         pip install -r requirements.txt
         pip install jupyter
 
-        jupyter nbconvert --ClearMetadataPreprocessor.enabled=True --ClearOutput.enabled=True  --to markdown README.ipynb
+        jupyter nbconvert --ClearMetadataPreprocessor.enabled=True --ClearOutput.enabled=True  --to markdown docs/README.ipynb
+        mv docs/README.md .
 
     - name: Commit files
       run: |
