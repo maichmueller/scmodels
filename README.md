@@ -64,17 +64,14 @@ from sympy.stats import LogLogistic, LogNormal, Normal
 
 functional_map = {
    "Z": (
-       [],
        "N",
        LogLogistic("N", alpha=1, beta=1)
    ),
    "X": (
-       ["Z"],
        "N * 3 * Z ** 2",
        LogNormal("N", mean=1, std=1),
    ),
    "Y": (
-       ["Z", "X"],
        "N + 2 * Z + sqrt(X)",
        Normal("N", mean=2, std=1),
    ),
