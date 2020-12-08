@@ -20,6 +20,13 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install jupyter
+        echo "{% extends 'markdown.tpl' %}" >> pythoncodeblocks.tpl
+        echo "{% block codecell %}" >> pythoncodeblocks.tpl
+        echo "``` python" >> pythoncodeblocks.tpl
+        echo "{{cell.source}}" >> pythoncodeblocks.tpl
+        echo "```" >> pythoncodeblocks.tpl
+        echo "{% endblock codecell %}}" >> pythoncodeblocks.tpl
+        
         jupyter nbconvert --template "pythoncodeblocks.tpl" --ClearMetadataPreprocessor.enabled=True --ClearOutput.enabled=True  --to markdown README.ipynb
 
     - name: Commit files
