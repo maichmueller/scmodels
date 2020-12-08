@@ -1,5 +1,10 @@
 # SCM
-![Ubuntu Tests (3.6|3.7|3.8)](https://github.com/maichmueller/scm/workflows/Ubuntu%20Tests%20(3.6%7C3.7%7C3.8)/badge.svg)
+
+| OS        |  Status |
+| :-------------: |:-------------:|
+| Linux       | ![L Py 3.7 - 3.9](https://github.com/maichmueller/scm/workflows/L%20Py%203.7%20-%203.9/badge.svg)    |
+| Windows | ![W Py 3.7 - 3.9](https://github.com/maichmueller/scm/workflows/W%20Py%203.7%20-%203.9/badge.svg) | 
+| Mac | ![M Py 3.7 - 3.9](https://github.com/maichmueller/scm/workflows/M%20Py%203.7%20-%203.9/badge.svg) |
 
 A Python package implementing Structural Causal Models (SCM).
 
@@ -10,6 +15,8 @@ It supports the features:
   - Intervening
   - Plotting
   - Printing
+  
+ and by extension all methods on a DAG provided by networkx after accessing the member variable dag
   
 # Installation
 Git clone the repository and run the setup.py file
@@ -34,26 +41,37 @@ with the assignments
 
 ![Y = 2Z + \sqrt{X} + N](https://latex.codecogs.com/svg.latex?&space;Y=2Z+\sqrt{X}+N\quad[N=\text{Normal}(\mu=2,\sigma=1)])
 
-do the following
+one can describe the assignments as strings
 
 ```python
 from scm import SCM
-from sympy.stats import sample_iter, LogLogistic, LogNormal, Normal
+
+myscm = SCM(
+    [
+        "Z = N, N ~ LogLogistic(alpha=1, beta=1)", 
+        "X = N * 3 * Z ** 2, N ~ LogNormal(mean=1, std=1)", 
+        "Y = N + 2 * Z + sqrt(X), N ~ Normal(mean=2, std=1)"
+    ]   
+)
+```
+
+or build the assignments piecewise themselves via an assignment map
+
+```python
+from scm import SCM
+from sympy.stats import LogLogistic, LogNormal, Normal
 
 
 functional_map = {
    "Z": (
-       [],
        "N",
        LogLogistic("N", alpha=1, beta=1)
    ),
    "X": (
-       ["Z"],
        "N * 3 * Z ** 2",
        LogNormal("N", mean=1, std=1),
    ),
    "Y": (
-       ["Z", "X"],
        "N + 2 * Z + sqrt(X)",
        Normal("N", mean=2, std=1),
    ),

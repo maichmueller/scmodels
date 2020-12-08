@@ -1,18 +1,14 @@
-name: Ubuntu Tests (3.6|3.7|3.8)
+name: M Py 3.7 - 3.9
 
-on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+on: push
 
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
+  test:
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8]
+        os: [ macos-latest ]
+        python-version: [3.7, 3.8, 3.9]
 
     steps:
     - uses: actions/checkout@v2
