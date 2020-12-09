@@ -109,33 +109,10 @@ and sample as many samples from it as desired
 myscm.sample(5)
 ```
 
-    C:\Users\Michael\.conda\envs\py38\lib\site-packages\sympy\stats\rv.py:1092: UserWarning: 
-    The return type of sample has been changed to return an iterator
-    object since version 1.7. For more information see
-    https://github.com/sympy/sympy/issues/19061
-      warnings.warn(filldedent(message))
-
-
-
-
-
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
+<table border="1">
   <thead>
-    <tr style="text-align: right;">
+    <tr>
       <th></th>
       <th>X</th>
       <th>Z</th>
@@ -210,6 +187,6 @@ myscm.plot(node_size=1000, alpha=1)
 
 
     
-![png](README_files/README_17_0.png)
+![example plot](docs/README_files/README_17_0.png)
     
 
