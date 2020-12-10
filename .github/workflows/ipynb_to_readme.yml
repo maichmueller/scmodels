@@ -22,7 +22,6 @@ jobs:
         pip install jupyter
 
         jupyter nbconvert --ClearMetadataPreprocessor.enabled=True --ClearOutput.enabled=True  --to markdown docs/README.ipynb --output-dir=.
-        mv docs/README.md .
 
     - name: Commit files
       run: |
