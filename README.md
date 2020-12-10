@@ -92,7 +92,7 @@ print(myscm)
     Current Assignments are:
     Z := f(N) = N	 [ N ~ LogLogistic(alpha=1, beta=1) ]
     X := f(N, Z) = N * 3 * Z ** 2	 [ N ~ LogNormal(mean=1, std=1) ]
-    Y := f(N, Z, X) = N + 2 * Z + sqrt(X)	 [ N ~ Normal(mean=2, std=1) ]
+    Y := f(N, X, Z) = N + 2 * Z + sqrt(X)	 [ N ~ Normal(mean=2, std=1) ]
 
 
 One can easily perform interventions on the variables, e.g. a Do-intervention ![\text{do}(X=1=)](https://latex.codecogs.com/svg.latex?&space;\text{do}(X=1))
@@ -109,10 +109,33 @@ and sample as many samples from it as desired
 myscm.sample(5)
 ```
 
+    C:\Users\Michael\.conda\envs\py38\lib\site-packages\sympy\stats\rv.py:1092: UserWarning: 
+    The return type of sample has been changed to return an iterator
+    object since version 1.7. For more information see
+    https://github.com/sympy/sympy/issues/19061
+      warnings.warn(filldedent(message))
+
+
+
+
+
 <div>
-<table border="1">
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
   <thead>
-    <tr>
+    <tr style="text-align: right;">
       <th></th>
       <th>X</th>
       <th>Z</th>
@@ -123,32 +146,32 @@ myscm.sample(5)
     <tr>
       <th>0</th>
       <td>1</td>
-      <td>1.179145</td>
-      <td>5.179133</td>
+      <td>0.204204</td>
+      <td>2.412121</td>
     </tr>
     <tr>
       <th>1</th>
       <td>1</td>
-      <td>5.065117</td>
-      <td>14.378224</td>
+      <td>0.038627</td>
+      <td>2.035116</td>
     </tr>
     <tr>
       <th>2</th>
       <td>1</td>
-      <td>0.231200</td>
-      <td>2.656906</td>
+      <td>0.627638</td>
+      <td>4.767240</td>
     </tr>
     <tr>
       <th>3</th>
       <td>1</td>
-      <td>0.596879</td>
-      <td>3.695645</td>
+      <td>0.620331</td>
+      <td>4.497902</td>
     </tr>
     <tr>
       <th>4</th>
       <td>1</td>
-      <td>1.183835</td>
-      <td>5.702240</td>
+      <td>0.143817</td>
+      <td>4.723647</td>
     </tr>
   </tbody>
 </table>
@@ -168,7 +191,7 @@ print(myscm)
     Current Assignments are:
     Z := f(N) = N	 [ N ~ LogLogistic(alpha=1, beta=1) ]
     X := f(N) = 1	 [ N ~ LogNormal(mean=1, std=1) ]
-    Y := f(N, Z, X) = N + 2 * Z + sqrt(X)	 [ N ~ Normal(mean=2, std=1) ]
+    Y := f(N, X, Z) = N + 2 * Z + sqrt(X)	 [ N ~ Normal(mean=2, std=1) ]
 
 
 which can be restored to the initial status via undoing the intervention
@@ -180,13 +203,8 @@ myscm.undo_intervention()
 
 If you have graphviz installed, you can also use it to plot the DAG easily
 
-
 ```python
 myscm.plot(node_size=1000, alpha=1)
 ```
 
-
-    
-![example plot](docs/README_files/README_17_0.png)
-    
-
+![example_plot](docs/images/example_plot.png)
