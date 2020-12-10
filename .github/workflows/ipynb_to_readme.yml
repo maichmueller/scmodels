@@ -9,9 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
     - name: Set up Python 3.7
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v2
       with:
         python-version: 3.7
 
@@ -21,7 +21,7 @@ jobs:
         pip install -r requirements.txt
         pip install jupyter
 
-        jupyter nbconvert --ClearMetadataPreprocessor.enabled=True --ClearOutput.enabled=True  --to markdown docs/README.ipynb
+        jupyter nbconvert --ClearMetadataPreprocessor.enabled=True --ClearOutput.enabled=True  --to markdown docs/README.ipynb --output-dir=.
         mv docs/README.md .
 
     - name: Commit files
