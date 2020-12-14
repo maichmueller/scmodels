@@ -9,20 +9,15 @@ with open("README.md") as readme_file:
 with open("HISTORY.md") as history_file:
     history = history_file.read()
 
-requirements = [
-    "sympy>=1.6",
-    "networkx>=2.0",
-    "pandas>=1.0",
-    "scipy",
-    "numpy",
-    "matplotlib>=3.0",
-]
+
+with open('requirements.txt') as f:
+    requirements = f.read().splitlines()
 
 setup_requirements = ["pytest-runner"]
 
 test_requirements = ["pytest"]
 
-extras_requirements = {"plot": ["pygraphviz"], "test": ["pytest"]}
+extras_requirements = {"plot": ["pygraphviz", "graphviz"], "test": ["pytest"]}
 
 author = "Michael Aichmueller"
 
