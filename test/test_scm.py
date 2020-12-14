@@ -142,7 +142,7 @@ def test_scm_intervention():
 
     # reseeding needs to happen as the state of the initial noise distributions is further advanced than
     # a newly seeded noise by noise()
-    cn.reseed(0)
+    cn.seed(0)
 
     manual_sample = manual_standard_sample(
         n, scm_sample_interv.values.dtype, list(cn.dag.nodes), 0
@@ -158,21 +158,35 @@ def test_scm_dointervention():
     seed = 0
     cn = build_scm_linandpoly(seed=seed)
     n = 100
-    # standard_sample = cn.sample(n, seed=seed)
+    standard_sample = cn.sample(n, seed=seed)
     # do the intervention
     cn.do_intervention(["X_2"], [4])
-    # sample = cn.sample(n)
-    # assert (sample["X_2"] == 4).all()
-    # # from here on the cn should work as normal again
+    sample = cn.sample(n)
+    assert (sample["X_2"] == 4).all()
+    # from here on the cn should work as normal again
     cn.undo_intervention()
     new_sample = cn.sample(n, seed=seed)
     diff = (standard_sample.mean(0) - new_sample.mean(0)).abs().values
     assert (diff == 0.0).all()
 
 
+def test_sample_iter():
+    cn = build_scm_linandpoly()
+    samples = {var: [] for var in cn.get_variables()}
+    rng1 = np.random.default_rng(seed=0)
+    rng2 = np.random.default_rng(seed=0)
+    iterator = cn.sample_iter(samples, seed=rng1)
+    n = 10000
+    for _ in range(n):
+        next(iterator)
+    standard_sample = cn.sample(n, seed=rng2)
+    samples = pd.DataFrame.from_dict(samples)
+    diff = (standard_sample.mean(0) - samples.mean(0)).abs().values
+    assert (diff < 1e-1).all()
+
+
 def test_reproducibility():
     cn = build_scm_linandpoly()
-    # cn.reseed(1)
     n = 20
     sample = cn.sample(n, seed=1)
     sample2 = cn.sample(n, seed=1)

@@ -14,10 +14,9 @@ import logging
 from copy import deepcopy
 
 import sympy
+from sympy.core.singleton import SingletonRegistry
 from sympy.functions import *
-from sympy.stats import (
-    sample
-)
+from sympy.stats import sample
 from sympy.stats.rv import RandomSymbol
 
 from typing import (
@@ -33,7 +32,7 @@ from typing import (
     Optional,
     Hashable,
     Sequence,
-    Type,
+    Type, Generator, Iterator,
 )
 
 RV = RandomSymbol
@@ -137,7 +136,7 @@ class SCM:
         """
         self.scm_name: str = scm_name
         self.rng_state = np.random.default_rng()  # as standard we always have a local RNG machine
-        self.reseed(seed)
+        self.seed(seed)
         # the root variables which are causally happening at first.
         self.roots: List = []
         self.nr_variables: int = len(assignments)
@@ -206,8 +205,9 @@ class SCM:
             the dataframe containing the samples of all the variables needed for the selection.
         """
 
-        self.reseed(seed)
         samples = dict()
+        if seed is None:
+            seed = self.rng_state
 
         for node in self._causal_iterator(variables):
             node_attr = self.dag.nodes[node]
@@ -215,7 +215,7 @@ class SCM:
             arg_positions = node_attr[self.arg_positions_key]
             predecessors = list(self.dag.predecessors(node))
             noise = np.array(
-                list(sample(node_attr[self.noise_key], numsamples=n, seed=self.rng_state)), dtype=float
+                list(sample(node_attr[self.noise_key], numsamples=n, seed=seed)), dtype=float
             )
             args = [None] * len(predecessors)
             for pred in predecessors:
@@ -224,6 +224,63 @@ class SCM:
             data = node_attr[self.assignment_key](noise, *args)
             samples[node] = data
         return pd.DataFrame.from_dict(samples)
+
+    def sample_iter(
+            self,
+            container: Optional[Dict[str, List]] = None,
+            variables: Optional[Sequence[Hashable]] = None,
+            seed: Optional[Union[int, np.random.Generator]] = None,
+    ) -> Iterator[Dict[str, List]]:
+        """
+        Sample method to generate data for the given variables. If no list of variables is supplied, the method will
+        simply generate data for all variables.
+        Setting the seed guarantees reproducibility.
+
+        Parameters
+        ----------
+        container: Dict[str, List] (optional),
+            the container in which to store the output. If none is provided, the sample is returned in a new container,
+            otherwise the provided container is filled with the samples and returned.
+        variables: list,
+            the variable names to consider for sampling. If None, all variables will be sampled.
+        seed: int or np.random.Generator,
+            the seeding for the noise generators
+
+        Returns
+        -------
+        pd.DataFrame,
+            the dataframe containing the samples of all the variables needed for the selection.
+        """
+        if seed is None:
+            seed = self.rng_state
+        vars_ordered = list(self._causal_iterator(variables))
+        noise_iters = [
+            sample(
+                self.dag.nodes[node][self.noise_key],
+                numsamples=SingletonRegistry.Infinity,
+                seed=seed
+            ) for node in vars_ordered
+        ]
+
+        if container is None:
+            samples = {var: [] for var in vars_ordered}
+        else:
+            samples = container
+        while True:
+            for i, node in enumerate(vars_ordered):
+                noise = next(noise_iters[i])
+                node_attr = self.dag.nodes[node]
+                # emulate the kwarg call of the assignment by placing the args in the right position
+                arg_positions = node_attr[self.arg_positions_key]
+
+                predecessors = list(self.dag.predecessors(node))
+                args = [None] * len(predecessors)
+                for pred in predecessors:
+                    args[arg_positions[pred] - 1] = samples[pred][-1]
+
+                data = node_attr[self.assignment_key](noise, *args)
+                samples[node].append(data)
+            yield samples
 
     def intervention(
             self,
@@ -466,7 +523,7 @@ class SCM:
                 **attr_dict,
             )
 
-    def reseed(self, seed: Optional[Union[int, np.random.Generator]]):
+    def seed(self, seed: Optional[Union[int, np.random.Generator, np.random.RandomState]]):
         """
         Seeds the assignments.
 
@@ -476,7 +533,12 @@ class SCM:
             The seed to use for rng.
         """
         if seed is not None:
-            self.rng_state = np.random.default_rng(seed=seed)
+            if isinstance(seed, int):
+                self.rng_state = np.random.default_rng(seed=seed)
+            elif isinstance(seed, (np.random.Generator, np.random.RandomState)):
+                self.rng_state = seed
+            else:
+                raise ValueError(f"seed type {type(seed)} not supported.")
 
     def plot(
             self,
@@ -499,7 +561,7 @@ class SCM:
         The graphviz package has been marked as an optional package for this module and therefore needs to be installed
         by the user.
         Note, that graphviz may demand further libraries to be supplied, thus the following
-        command should install the necessary dependencies, if graphviz couldn't be found on your system.
+        command should install the necessary dependencies on Ubuntu, if graphviz couldn't be found on your system.
         Open a terminal and type:
 
             ``sudo apt-get install graphviz libgraphviz-dev pkg-config``
@@ -526,6 +588,11 @@ class SCM:
             the full filepath to the, to which the plot should be saved. If not provided, the plot will not be saved.
         kwargs :
             arguments to be passed to the ``networkx.draw`` method. Check its documentation for a full list.
+
+        Returns
+        -------
+        tuple,
+            the plt.figure and figure-axis objects holding the graph plot.
         """
         if nx.is_tree(self.dag):
             pos = hierarchy_pos(self.dag, root=self.roots[0])
@@ -536,10 +603,11 @@ class SCM:
             labels = self.var_draw_dict
         else:
             labels = {}
-        plt.figure(figsize=figsize, dpi=dpi)
+        fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
         nx.draw(
             self.dag,
             pos=pos,
+            ax=ax,
             labels=labels,
             with_labels=True,
             node_size=node_size,
@@ -547,7 +615,8 @@ class SCM:
             **kwargs,
         )
         if savepath is not None:
-            plt.savefig(savepath)
+            fig.savefig(savepath)
+        return fig, ax
 
     def str(self):
         """
@@ -743,7 +812,7 @@ def extract_rv_desc(rv: RV):
     argnames = dist._argnames
     args = dist.args
     dist_name = str(dist).split("(", 1)[0].replace("Distribution", "")
-    full_rv_str = f"{dist_name}({', '.join([f'{arg}={val}' for arg,val in zip(argnames, args)])})"
+    full_rv_str = f"{dist_name}({', '.join([f'{arg}={val}' for arg, val in zip(argnames, args)])})"
     return full_rv_str
 
 
