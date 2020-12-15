@@ -17,7 +17,11 @@ It supports the features:
  and by extension all methods on a DAG provided by networkx after accessing the member variable dag
 
 # Installation
-Git clone the repository and run the setup.py file
+Either install via pip
+```
+pip install scmodels
+```
+or via cloning the repository and running the setup.py file
 ```
 git clone https://github.com/maichmueller/scm
 cd scm
@@ -109,7 +113,30 @@ and sample as many samples from it as desired
 myscm.sample(5)
 ```
 
+    C:\Users\Michael\.conda\envs\py38\lib\site-packages\sympy\stats\rv.py:1104: UserWarning: 
+    The return type of sample has been changed to return an iterator
+    object since version 1.7. For more information see
+    https://github.com/sympy/sympy/issues/19061
+      warnings.warn(filldedent(message))
+
+
+
+
+
 <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -123,32 +150,32 @@ myscm.sample(5)
     <tr>
       <th>0</th>
       <td>1</td>
-      <td>0.204204</td>
-      <td>2.412121</td>
+      <td>1.037087</td>
+      <td>6.206237</td>
     </tr>
     <tr>
       <th>1</th>
       <td>1</td>
-      <td>0.038627</td>
-      <td>2.035116</td>
+      <td>0.207293</td>
+      <td>2.278741</td>
     </tr>
     <tr>
       <th>2</th>
       <td>1</td>
-      <td>0.627638</td>
-      <td>4.767240</td>
+      <td>4.479058</td>
+      <td>11.089535</td>
     </tr>
     <tr>
       <th>3</th>
       <td>1</td>
-      <td>0.620331</td>
-      <td>4.497902</td>
+      <td>0.574231</td>
+      <td>4.807162</td>
     </tr>
     <tr>
       <th>4</th>
       <td>1</td>
-      <td>0.143817</td>
-      <td>4.723647</td>
+      <td>7.216779</td>
+      <td>17.946997</td>
     </tr>
   </tbody>
 </table>
@@ -184,4 +211,9 @@ If you have graphviz installed, you can also use it to plot the DAG easily
 myscm.plot(node_size=1000, alpha=1)
 ```
 
-![example_plot](docs/images/example_plot.png)
+![example_plot](https://github.com/maichmueller/scm/blob/master/docs/images/example_plot.png)
+
+
+```python
+
+```
