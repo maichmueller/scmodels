@@ -39,6 +39,7 @@ setup(
     install_requires=requirements,
     license="MIT license",
     long_description=readme + "\n\n" + history,
+    long_description_content_type='text/markdown',
     include_package_data=True,
     keywords="bayesian graphs scm sem fcm causal graphical models causality",
     name="scmodels",
@@ -48,6 +49,6 @@ setup(
     tests_require=test_requirements,
     extras_require=extras_requirements,
     url="https://github.com/maichmueller/scm",
-    version="0.1",
+    version="0.1.1.dev",
     zip_safe=False,
 )
