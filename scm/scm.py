@@ -648,7 +648,8 @@ class SCM:
             args_str = ", ".join(parents_var)
             line = f"{str(node).rjust(max_var_space)} := f({args_str}) = {attr_dict[self.assignment_repr_key]}"
             # add explanation to the noise term
-            line += f"\t [ {noise_symbol} ~ {str(attr_dict[self.noise_repr_key])} ]"
+            if noise_symbol is not None:
+                line += f"\t [ {noise_symbol} ~ {str(attr_dict[self.noise_repr_key])} ]"
             lines.append(line)
         return "\n".join(lines)
 
@@ -698,8 +699,11 @@ class SCM:
         # the map that provides the positional mapping of arg names to each assignment
         # this is needed as assignment_str strings are lambdified and kwargs then no longer
         # possible, so this mapping emulates just that.
+        # offset: if there is no noise model, then there is no need to reserve space for the noise variable in the
+        # assignment order.
+        offset = int(noise_model is not None)
         args_positions = {
-            pa: pos for pa, pos in zip(parents_list, range(1, len(parents_list) + 1))
+            pa: pos for pa, pos in zip(parents_list, range(offset, len(parents_list) + 1))
         }
         noise, assignment = sympify_assignment(
             assignment_str, parents_list, noise_model
@@ -775,14 +779,13 @@ def sympify_assignment(
         the lambdified assignment.
     """
 
-    symbols = []
-    noise = noise_model
-    symbols.append(noise_model)
+    symbols = [noise_model]
+    if noise_model is not None:
+        # let the noise models variable name be known as symbol. This is necessary for sympifying.
+        exec(f"{str(noise_model)} = noise_model")
     for par in parents:
         exec(f"{par} = sympy.Symbol('{par}')")
         symbols.append(eval(par))
-    # let the noise models variable name be known as symbol. This is necessary for sympifying.
-    exec(f"{str(noise_model)} = noise_model")
     assignment = sympy.sympify(eval(assignment_str))
     try:
         assignment = sympy.lambdify(symbols, assignment, "numpy")
@@ -795,7 +798,7 @@ def sympify_assignment(
     return noise_model, assignment
 
 
-def extract_rv_desc(rv: RV):
+def extract_rv_desc(rv: Optional[RV]):
     """
     Extracts a human readable string description of the random variable.
 
@@ -808,6 +811,9 @@ def extract_rv_desc(rv: RV):
     -------
     str, the description.
     """
+    if rv is None:
+        return str(None)
+
     dist = rv.pspace.args[1]
     argnames = dist._argnames
     args = dist.args

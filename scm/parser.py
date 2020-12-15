@@ -4,7 +4,9 @@ import re as regex
 import sympy
 from sympy.functions import *
 from sympy.stats import *
+from sympy.stats.rv import RandomSymbol
 from sympy.stats import __all__ as all_stats_imports
+
 
 from typing import *
 
@@ -39,8 +41,13 @@ def parse_assignments(assignment_strs: Sequence[str]):
     for assignment in assignment_strs:
         # split the assignment 'X = f(Parents, Noise), Noise ~ D' into [X, f(Parents, Noise), Noise ~ D]
         assign_var, assignment_n_noise = assignment.split("=", 1)
-        assign_str, noise_str = assignment_n_noise.split(",", 1)
-        noise_var, model_sym = allocate_noise_model(strip_whitespaces(noise_str))
+        assign_noise_split = assignment_n_noise.split(",", 1)
+        if len(assign_noise_split) == 1:
+            assign_str = assign_noise_split
+            model_sym = DiscreteRV("N", density=1, set={0})
+        else:
+            assign_str, noise_str = assign_noise_split
+            _, model_sym = allocate_noise_model(strip_whitespaces(noise_str))
         functional_map[assign_var.strip()] = assign_str.strip(), model_sym
     return functional_map
 
