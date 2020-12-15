@@ -99,7 +99,7 @@ One can easily perform interventions on the variables, e.g. a Do-intervention ![
 
 
 ```python
-myscm.do_intervention(["X"], [1])
+myscm.do_intervention([("X", 1)])
 ```
 
 and sample as many samples from it as desired
@@ -108,8 +108,31 @@ and sample as many samples from it as desired
 ```python
 myscm.sample(5)
 ```
-<div>
 
+    C:\Users\Michael\.conda\envs\py38\lib\site-packages\sympy\stats\rv.py:1092: UserWarning: 
+    The return type of sample has been changed to return an iterator
+    object since version 1.7. For more information see
+    https://github.com/sympy/sympy/issues/19061
+      warnings.warn(filldedent(message))
+
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
