@@ -99,7 +99,7 @@ One can easily perform interventions on the variables, e.g. a Do-intervention ![
 
 
 ```python
-myscm.do_intervention(["X"], [1])
+myscm.do_intervention([("X", 1)])
 ```
 
 and sample as many samples from it as desired
@@ -108,8 +108,8 @@ and sample as many samples from it as desired
 ```python
 myscm.sample(5)
 ```
-<div>
 
+<div>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">

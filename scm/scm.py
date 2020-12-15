@@ -8,16 +8,16 @@ import pandas as pd
 import networkx as nx
 from networkx.drawing.nx_agraph import graphviz_layout
 from collections import deque, defaultdict
+from itertools import repeat
 
 import matplotlib.pyplot as plt
 import logging
 from copy import deepcopy
 
 import sympy
+from sympy.core.singleton import SingletonRegistry
 from sympy.functions import *
-from sympy.stats import (
-    sample
-)
+from sympy.stats import sample
 from sympy.stats.rv import RandomSymbol
 
 from typing import (
@@ -33,7 +33,7 @@ from typing import (
     Optional,
     Hashable,
     Sequence,
-    Type,
+    Type, Generator, Iterator,
 )
 
 RV = RandomSymbol
@@ -137,7 +137,7 @@ class SCM:
         """
         self.scm_name: str = scm_name
         self.rng_state = np.random.default_rng()  # as standard we always have a local RNG machine
-        self.reseed(seed)
+        self.seed(seed)
         # the root variables which are causally happening at first.
         self.roots: List = []
         self.nr_variables: int = len(assignments)
@@ -206,24 +206,98 @@ class SCM:
             the dataframe containing the samples of all the variables needed for the selection.
         """
 
-        self.reseed(seed)
         samples = dict()
+        if seed is None:
+            seed = self.rng_state
 
         for node in self._causal_iterator(variables):
             node_attr = self.dag.nodes[node]
             # emulate the kwarg call of the assignment by placing the args in the right position
             arg_positions = node_attr[self.arg_positions_key]
             predecessors = list(self.dag.predecessors(node))
-            noise = np.array(
-                list(sample(node_attr[self.noise_key], numsamples=n, seed=self.rng_state)), dtype=float
-            )
-            args = [None] * len(predecessors)
-            for pred in predecessors:
-                args[arg_positions[pred] - 1] = samples[pred]
 
-            data = node_attr[self.assignment_key](noise, *args)
+            args = [None] * (len(predecessors) + 1)
+            for pred in predecessors:
+                args[arg_positions[pred]] = samples[pred]
+
+            noise_gen = node_attr[self.noise_key]
+            if noise_gen is not None:
+                args[0] = np.array(
+                    list(sample(noise_gen, numsamples=n, seed=seed)), dtype=float
+                )
+            else:
+                args = args[1:]
+
+            data = node_attr[self.assignment_key](*args)
             samples[node] = data
         return pd.DataFrame.from_dict(samples)
+
+    def sample_iter(
+            self,
+            container: Optional[Dict[str, List]] = None,
+            variables: Optional[Sequence[Hashable]] = None,
+            seed: Optional[Union[int, np.random.Generator]] = None,
+    ) -> Iterator[Dict[str, List]]:
+        """
+        Sample method to generate data for the given variables. If no list of variables is supplied, the method will
+        simply generate data for all variables.
+        Setting the seed guarantees reproducibility.
+
+        Parameters
+        ----------
+        container: Dict[str, List] (optional),
+            the container in which to store the output. If none is provided, the sample is returned in a new container,
+            otherwise the provided container is filled with the samples and returned.
+        variables: list,
+            the variable names to consider for sampling. If None, all variables will be sampled.
+        seed: int or np.random.Generator,
+            the seeding for the noise generators
+
+        Returns
+        -------
+        pd.DataFrame,
+            the dataframe containing the samples of all the variables needed for the selection.
+        """
+        if seed is None:
+            seed = self.rng_state
+        vars_ordered = list(self._causal_iterator(variables))
+        noise_iters = []
+        for node in vars_ordered:
+            noise_gen = self.dag.nodes[node][self.noise_key]
+            if noise_gen is not None:
+                noise_iters.append(
+                    sample(
+                        noise_gen,
+                        numsamples=SingletonRegistry.Infinity,
+                        seed=seed
+                    )
+                )
+            else:
+                noise_iters.append(repeat(None))
+
+        if container is None:
+            samples = {var: [] for var in vars_ordered}
+        else:
+            samples = container
+        while True:
+            for i, node in enumerate(vars_ordered):
+                node_attr = self.dag.nodes[node]
+                # emulate the kwarg call of the assignment by placing the args in the right position
+                arg_positions = node_attr[self.arg_positions_key]
+                predecessors = list(self.dag.predecessors(node))
+                args = [None] * (len(predecessors) + 1)
+                for pred in predecessors:
+                    args[arg_positions[pred]] = samples[pred][-1]
+
+                noise = next(noise_iters[i])
+                if noise is not None:
+                    args[0] = noise
+                else:
+                    args = args[1:]
+
+                data = node_attr[self.assignment_key](*args)
+                samples[node].append(data)
+            yield samples
 
     def intervention(
             self,
@@ -244,15 +318,10 @@ class SCM:
             the variables as keys and their new functional as values. For the values one can
             choose between a dictionary or a list-like.
             - For dict: the dictionary is assumed to have the optional keys (default behaviour explained):
-                -- "parents": List of parent variables. If None, set to current parents.
                 -- "function_key": str, the new assignment as str. If None, keeps current assignment.
                 -- "noise_key": sympy.rv, the new noise RV. If None, keeps current noise model.
 
-                Note, that when providing new parents without a new functional function, the user implicitly assumes
-                the order of positional parameters of the functional function to agree with the iterative order of the
-                new parents!
-
-            - For sequence: the order is (Parent list, assignment str, noise RVs).
+            - For sequence: the order is (assignment str, noise RV).
                 In order to omit one of these, set them to None.
         """
         interventional_map = dict()
@@ -314,7 +383,7 @@ class SCM:
             )
         self.insert(interventional_map)
 
-    def do_intervention(self, variables: Sequence[str], values: Sequence[float]):
+    def do_intervention(self, var_val_pairs: Sequence[Tuple[str, float]]):
         """
         Perform do-interventions, i.e. setting specific variables to a constant value.
         This method removes the noise influence of the intervened variables.
@@ -323,18 +392,11 @@ class SCM:
 
         Parameters
         ----------
-        variables : Sequence,
-            the variables to intervene on.
-        values : Sequence[float],
-            the constant values the chosen variables should be set to.
+        var_val_pairs Sequence of str-float tuple,
+            the variables to intervene on with their new values.
         """
-        if len(variables) != len(values):
-            raise ValueError(
-                f"Got {len(variables)} variables, but {len(values)} values."
-            )
-
         interventions_dict = dict()
-        for var, val in zip(variables, values):
+        for var, val in var_val_pairs:
             interventions_dict[var] = (str(val), None)
         self.intervention(interventions_dict)
 
@@ -466,7 +528,7 @@ class SCM:
                 **attr_dict,
             )
 
-    def reseed(self, seed: Optional[Union[int, np.random.Generator]]):
+    def seed(self, seed: Optional[Union[int, np.random.Generator, np.random.RandomState]]):
         """
         Seeds the assignments.
 
@@ -476,7 +538,12 @@ class SCM:
             The seed to use for rng.
         """
         if seed is not None:
-            self.rng_state = np.random.default_rng(seed=seed)
+            if isinstance(seed, int):
+                self.rng_state = np.random.default_rng(seed=seed)
+            elif isinstance(seed, (np.random.Generator, np.random.RandomState)):
+                self.rng_state = seed
+            else:
+                raise ValueError(f"seed type {type(seed)} not supported.")
 
     def plot(
             self,
@@ -499,7 +566,7 @@ class SCM:
         The graphviz package has been marked as an optional package for this module and therefore needs to be installed
         by the user.
         Note, that graphviz may demand further libraries to be supplied, thus the following
-        command should install the necessary dependencies, if graphviz couldn't be found on your system.
+        command should install the necessary dependencies on Ubuntu, if graphviz couldn't be found on your system.
         Open a terminal and type:
 
             ``sudo apt-get install graphviz libgraphviz-dev pkg-config``
@@ -526,6 +593,11 @@ class SCM:
             the full filepath to the, to which the plot should be saved. If not provided, the plot will not be saved.
         kwargs :
             arguments to be passed to the ``networkx.draw`` method. Check its documentation for a full list.
+
+        Returns
+        -------
+        tuple,
+            the plt.figure and figure-axis objects holding the graph plot.
         """
         if nx.is_tree(self.dag):
             pos = hierarchy_pos(self.dag, root=self.roots[0])
@@ -536,10 +608,11 @@ class SCM:
             labels = self.var_draw_dict
         else:
             labels = {}
-        plt.figure(figsize=figsize, dpi=dpi)
+        fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
         nx.draw(
             self.dag,
             pos=pos,
+            ax=ax,
             labels=labels,
             with_labels=True,
             node_size=node_size,
@@ -547,7 +620,8 @@ class SCM:
             **kwargs,
         )
         if savepath is not None:
-            plt.savefig(savepath)
+            fig.savefig(savepath)
+        return fig, ax
 
     def str(self):
         """
@@ -579,7 +653,8 @@ class SCM:
             args_str = ", ".join(parents_var)
             line = f"{str(node).rjust(max_var_space)} := f({args_str}) = {attr_dict[self.assignment_repr_key]}"
             # add explanation to the noise term
-            line += f"\t [ {noise_symbol} ~ {str(attr_dict[self.noise_repr_key])} ]"
+            if noise_symbol is not None:
+                line += f"\t [ {noise_symbol} ~ {str(attr_dict[self.noise_repr_key])} ]"
             lines.append(line)
         return "\n".join(lines)
 
@@ -629,8 +704,11 @@ class SCM:
         # the map that provides the positional mapping of arg names to each assignment
         # this is needed as assignment_str strings are lambdified and kwargs then no longer
         # possible, so this mapping emulates just that.
+        # offset: if there is no noise model, then there is no need to reserve space for the noise variable in the
+        # assignment order.
+        offset = int(noise_model is not None)
         args_positions = {
-            pa: pos for pa, pos in zip(parents_list, range(1, len(parents_list) + 1))
+            pa: pos for pa, pos in zip(parents_list, range(offset, len(parents_list) + 1))
         }
         noise, assignment = sympify_assignment(
             assignment_str, parents_list, noise_model
@@ -707,13 +785,13 @@ def sympify_assignment(
     """
 
     symbols = []
-    noise = noise_model
-    symbols.append(noise_model)
+    if noise_model is not None:
+        symbols.append(noise_model)
+        # let the noise models variable name be known as symbol. This is necessary for sympifying.
+        exec(f"{str(noise_model)} = noise_model")
     for par in parents:
         exec(f"{par} = sympy.Symbol('{par}')")
         symbols.append(eval(par))
-    # let the noise models variable name be known as symbol. This is necessary for sympifying.
-    exec(f"{str(noise_model)} = noise_model")
     assignment = sympy.sympify(eval(assignment_str))
     try:
         assignment = sympy.lambdify(symbols, assignment, "numpy")
@@ -726,7 +804,7 @@ def sympify_assignment(
     return noise_model, assignment
 
 
-def extract_rv_desc(rv: RV):
+def extract_rv_desc(rv: Optional[RV]):
     """
     Extracts a human readable string description of the random variable.
 
@@ -739,11 +817,14 @@ def extract_rv_desc(rv: RV):
     -------
     str, the description.
     """
+    if rv is None:
+        return str(None)
+
     dist = rv.pspace.args[1]
     argnames = dist._argnames
     args = dist.args
     dist_name = str(dist).split("(", 1)[0].replace("Distribution", "")
-    full_rv_str = f"{dist_name}({', '.join([f'{arg}={val}' for arg,val in zip(argnames, args)])})"
+    full_rv_str = f"{dist_name}({', '.join([f'{arg}={val}' for arg, val in zip(argnames, args)])})"
     return full_rv_str
 
 
