@@ -224,3 +224,26 @@ def test_reproducibility():
     sample = cn.sample(n, seed=1)
     sample2 = cn.sample(n, seed=1)
     assert (sample.to_numpy() == sample2.to_numpy()).all()
+
+
+def test_none_noise():
+    cn = SCM(
+        [
+            "X = 1",
+            "Y = N + X, N ~ Normal(0,1)"
+        ],
+        seed=0
+    )
+    n = 10
+    sample = cn.sample(n)
+    manual_y = np.random.default_rng(0).normal(size=n) + 1
+    assert (sample["X"] == 1).all()
+    assert (sample["Y"] == manual_y).all()
+
+    sample = {var: [] for var in cn.get_variables()}
+    sampler = cn.sample_iter(sample, seed=0)
+    list(next(sampler) for _ in range(n))
+    sample = pd.DataFrame.from_dict(sample)
+    manual_y = np.random.default_rng(0).normal(size=n) + 1
+    assert (sample["X"] == 1).all()
+    assert (sample["Y"] == manual_y).all()

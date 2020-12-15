@@ -8,6 +8,7 @@ import pandas as pd
 import networkx as nx
 from networkx.drawing.nx_agraph import graphviz_layout
 from collections import deque, defaultdict
+from itertools import repeat
 
 import matplotlib.pyplot as plt
 import logging
@@ -214,14 +215,20 @@ class SCM:
             # emulate the kwarg call of the assignment by placing the args in the right position
             arg_positions = node_attr[self.arg_positions_key]
             predecessors = list(self.dag.predecessors(node))
-            noise = np.array(
-                list(sample(node_attr[self.noise_key], numsamples=n, seed=seed)), dtype=float
-            )
-            args = [None] * len(predecessors)
-            for pred in predecessors:
-                args[arg_positions[pred] - 1] = samples[pred]
 
-            data = node_attr[self.assignment_key](noise, *args)
+            args = [None] * (len(predecessors) + 1)
+            for pred in predecessors:
+                args[arg_positions[pred]] = samples[pred]
+
+            noise_gen = node_attr[self.noise_key]
+            if noise_gen is not None:
+                args[0] = np.array(
+                    list(sample(noise_gen, numsamples=n, seed=seed)), dtype=float
+                )
+            else:
+                args = args[1:]
+
+            data = node_attr[self.assignment_key](*args)
             samples[node] = data
         return pd.DataFrame.from_dict(samples)
 
@@ -254,13 +261,19 @@ class SCM:
         if seed is None:
             seed = self.rng_state
         vars_ordered = list(self._causal_iterator(variables))
-        noise_iters = [
-            sample(
-                self.dag.nodes[node][self.noise_key],
-                numsamples=SingletonRegistry.Infinity,
-                seed=seed
-            ) for node in vars_ordered
-        ]
+        noise_iters = []
+        for node in vars_ordered:
+            noise_gen = self.dag.nodes[node][self.noise_key]
+            if noise_gen is not None:
+                noise_iters.append(
+                    sample(
+                        noise_gen,
+                        numsamples=SingletonRegistry.Infinity,
+                        seed=seed
+                    )
+                )
+            else:
+                noise_iters.append(repeat(None))
 
         if container is None:
             samples = {var: [] for var in vars_ordered}
@@ -268,17 +281,21 @@ class SCM:
             samples = container
         while True:
             for i, node in enumerate(vars_ordered):
-                noise = next(noise_iters[i])
                 node_attr = self.dag.nodes[node]
                 # emulate the kwarg call of the assignment by placing the args in the right position
                 arg_positions = node_attr[self.arg_positions_key]
-
                 predecessors = list(self.dag.predecessors(node))
-                args = [None] * len(predecessors)
+                args = [None] * (len(predecessors) + 1)
                 for pred in predecessors:
-                    args[arg_positions[pred] - 1] = samples[pred][-1]
+                    args[arg_positions[pred]] = samples[pred][-1]
 
-                data = node_attr[self.assignment_key](noise, *args)
+                noise = next(noise_iters[i])
+                if noise is not None:
+                    args[0] = noise
+                else:
+                    args = args[1:]
+
+                data = node_attr[self.assignment_key](*args)
                 samples[node].append(data)
             yield samples
 
@@ -779,8 +796,9 @@ def sympify_assignment(
         the lambdified assignment.
     """
 
-    symbols = [noise_model]
+    symbols = []
     if noise_model is not None:
+        symbols.append(noise_model)
         # let the noise models variable name be known as symbol. This is necessary for sympifying.
         exec(f"{str(noise_model)} = noise_model")
     for par in parents:

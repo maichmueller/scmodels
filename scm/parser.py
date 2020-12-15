@@ -43,8 +43,8 @@ def parse_assignments(assignment_strs: Sequence[str]):
         assign_var, assignment_n_noise = assignment.split("=", 1)
         assign_noise_split = assignment_n_noise.split(",", 1)
         if len(assign_noise_split) == 1:
-            assign_str = assign_noise_split
-            model_sym = DiscreteRV("N", density=1, set={0})
+            assign_str = assign_noise_split[0]
+            model_sym = None
         else:
             assign_str, noise_str = assign_noise_split
             _, model_sym = allocate_noise_model(strip_whitespaces(noise_str))
