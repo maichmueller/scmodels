@@ -318,15 +318,10 @@ class SCM:
             the variables as keys and their new functional as values. For the values one can
             choose between a dictionary or a list-like.
             - For dict: the dictionary is assumed to have the optional keys (default behaviour explained):
-                -- "parents": List of parent variables. If None, set to current parents.
                 -- "function_key": str, the new assignment as str. If None, keeps current assignment.
                 -- "noise_key": sympy.rv, the new noise RV. If None, keeps current noise model.
 
-                Note, that when providing new parents without a new functional function, the user implicitly assumes
-                the order of positional parameters of the functional function to agree with the iterative order of the
-                new parents!
-
-            - For sequence: the order is (Parent list, assignment str, noise RVs).
+            - For sequence: the order is (assignment str, noise RV).
                 In order to omit one of these, set them to None.
         """
         interventional_map = dict()
@@ -388,7 +383,7 @@ class SCM:
             )
         self.insert(interventional_map)
 
-    def do_intervention(self, variables: Sequence[str], values: Sequence[float]):
+    def do_intervention(self, var_val_pairs: Sequence[Tuple[str, float]]):
         """
         Perform do-interventions, i.e. setting specific variables to a constant value.
         This method removes the noise influence of the intervened variables.
@@ -397,18 +392,11 @@ class SCM:
 
         Parameters
         ----------
-        variables : Sequence,
-            the variables to intervene on.
-        values : Sequence[float],
-            the constant values the chosen variables should be set to.
+        var_val_pairs Sequence of str-float tuple,
+            the variables to intervene on with their new values.
         """
-        if len(variables) != len(values):
-            raise ValueError(
-                f"Got {len(variables)} variables, but {len(values)} values."
-            )
-
         interventions_dict = dict()
-        for var, val in zip(variables, values):
+        for var, val in var_val_pairs:
             interventions_dict[var] = (str(val), None)
         self.intervention(interventions_dict)
 

@@ -193,7 +193,7 @@ def test_scm_dointervention():
     n = 100
     standard_sample = cn.sample(n, seed=seed)
     # do the intervention
-    cn.do_intervention(["X_2"], [4])
+    cn.do_intervention([("X_2", 4)])
     sample = cn.sample(n)
     assert (sample["X_2"] == 4).all()
     # from here on the cn should work as normal again
