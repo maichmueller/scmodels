@@ -23,8 +23,8 @@ pip install scmodels
 ```
 or via cloning the repository and running the setup.py file
 ```
-git clone https://github.com/maichmueller/scm
-cd scm
+git clone https://github.com/maichmueller/scmodels
+cd scmodels
 python setup.py install
 ```
 
