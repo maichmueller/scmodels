@@ -1,18 +1,41 @@
 from scmodels import SCM
 from sympy.stats import *
 
-def build_scm_minimal(seed=0):
+
+def build_scm_from_assignmentmap(seed=0):
     cn = SCM(
         assignments={
             "X_0": ("N", Normal("N", 0, 1)),
             "X_1": ("1 + X_0 + N", Normal("N", 0, 1)),
-            "X_3": ("0.3 * X_1 + N", Normal("N", 0, 1))
+            "X_3": ("0.3 * X_1 + X_0 + N", Normal("N", 0, 1)),
         },
-        variable_tex_names={
-            "X_0": "$X_0$",
-            "X_1": "$X_1$",
-            "X_3": "$X_3$",
+        variable_tex_names={"X_0": "$X_0$", "X_1": "$X_1$", "X_3": "$X_3$"},
+        seed=seed,
+    )
+    return cn
+
+
+def build_scm_from_assignmentstrs(seed=0):
+    cn = SCM(
+        assignments=[
+            "X_0 = N, N ~ Normal(mean=0, std=1)",
+            "X_1 = 1 + X_0 + N, N ~ Normal(mean=0, std=1)",
+            "X_3 = 0.3 * X_1 + X_0 + N, N ~ Normal(mean=0, std=1)",
+        ],
+        variable_tex_names={"X_0": "$X_0$", "X_1": "$X_1$", "X_3": "$X_3$"},
+        seed=seed,
+    )
+    return cn
+
+
+def build_scm_from_functionalmap(seed=0):
+    cn = SCM(
+        assignments={
+            "X_0": ([], lambda n: n, Normal("N", mean=0, std=1)),
+            "X_1": (["X_0"], lambda n, x0: 1 + x0 + n, Normal("N", mean=0, std=1)),
+            "X_3": (["X_0", "X_1"], lambda n, x0, x1: 0.3 * x1 + x0 + n, Normal("N", mean=0, std=1)),
         },
+        variable_tex_names={"X_0": "$X_0$", "X_1": "$X_1$", "X_3": "$X_3$"},
         seed=seed,
     )
     return cn
