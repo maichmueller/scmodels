@@ -33,11 +33,46 @@ from typing import (
     Optional,
     Hashable,
     Sequence,
-    Type, Generator, Iterator,
+    Type,
+    Generator,
+    Iterator,
+    Callable,
 )
 
 RV = RandomSymbol
 AssignmentMap = Dict[str, Tuple[str, RV]]
+FunctionalMap = Dict[str, Tuple[List[str], Callable, RV]]
+
+
+class Assignment:
+
+    noise_argname = "{__noise__}"
+
+    def __init__(
+        self,
+        functor: Callable,
+        ordered_parents: Sequence[str],
+        desc: Optional[str] = None,
+    ):
+        assert callable(functor), "Passed functor must be callable."
+        self.functor = functor
+        self.desc = desc if desc is not None else "__custom__"
+        self.arg_positions = {
+            var: pos for (var, pos) in zip(ordered_parents, range(len(ordered_parents)))
+        }
+
+    def __len__(self):
+        return len(self.arg_positions)
+
+    def __call__(self, *args, **kwargs):
+        args = list(args) + [None] * (len(self) - len(args))
+        for var in kwargs:
+            if var in self.arg_positions:
+                args[self.arg_positions[var]] = kwargs[var]
+        return self.functor(*args)
+
+    def __str__(self):
+        return self.desc
 
 
 class SCM:
@@ -61,11 +96,11 @@ class SCM:
     """
 
     def __init__(
-            self,
-            assignments: Union[AssignmentMap, Sequence[str]],
-            variable_tex_names: Optional[Dict] = None,
-            seed: Optional[int] = None,
-            scm_name: str = "Structural Causal Model",
+        self,
+        assignments: Union[AssignmentMap, FunctionalMap, Sequence[str]],
+        variable_tex_names: Optional[Dict] = None,
+        seed: Optional[int] = None,
+        scm_name: str = "Structural Causal Model",
     ):
         """
         Construct the SCM from an assignment map with the variables as keys and its assignment information
@@ -136,20 +171,16 @@ class SCM:
             The name of the SCM. Default is 'Structural Causal Model'.
         """
         self.scm_name: str = scm_name
-        self.rng_state = np.random.default_rng()  # as standard we always have a local RNG machine
+        self.rng_state = np.random.default_rng()  # we always have a local RNG machine
         self.seed(seed)
-        # the root variables which are causally happening at first.
-        self.roots: List = []
         self.nr_variables: int = len(assignments)
 
         # the attribute list that any given node in the graph has.
         (
             self.assignment_key,
             self.noise_key,
-            self.assignment_repr_key,
-            self.noise_repr_key,
-            self.arg_positions_key,
-        ) = ("assignment", "noise", "assignment_repr", "noise_repr", "arg_positions")
+            self.noise_repr_key
+        ) = ("assignment", "noise", "noise_repr")
 
         # a backup dictionary of the original assignments of the intervened variables,
         # in order to undo the interventions later.
@@ -160,6 +191,7 @@ class SCM:
         # any node will be given the attributes of function and noise to later sample from and also an incoming edge
         # from its causal parent. We will store the causal root nodes separately.
         self.dag = nx.DiGraph()
+        self.roots: List = []
         self.insert(assignments)
 
         self.var = np.array(self.get_variables())
@@ -181,10 +213,10 @@ class SCM:
         return self.str()
 
     def sample(
-            self,
-            n: int,
-            variables: Optional[Sequence[Hashable]] = None,
-            seed: Optional[Union[int, np.random.Generator]] = None,
+        self,
+        n: int,
+        variables: Optional[Sequence[Hashable]] = None,
+        seed: Optional[Union[int, np.random.Generator]] = None,
     ):
         """
         Sample method to generate data for the given variables. If no list of variables is supplied, the method will
@@ -212,31 +244,27 @@ class SCM:
 
         for node in self._causal_iterator(variables):
             node_attr = self.dag.nodes[node]
-            # emulate the kwarg call of the assignment by placing the args in the right position
-            arg_positions = node_attr[self.arg_positions_key]
             predecessors = list(self.dag.predecessors(node))
 
-            args = [None] * (len(predecessors) + 1)
+            named_args = dict()
             for pred in predecessors:
-                args[arg_positions[pred]] = samples[pred]
+                named_args[pred] = samples[pred]
 
             noise_gen = node_attr[self.noise_key]
             if noise_gen is not None:
-                args[0] = np.array(
+                named_args[Assignment.noise_argname] = np.array(
                     list(sample(noise_gen, numsamples=n, seed=seed)), dtype=float
                 )
-            else:
-                args = args[1:]
 
-            data = node_attr[self.assignment_key](*args)
+            data = node_attr[self.assignment_key](**named_args)
             samples[node] = data
         return pd.DataFrame.from_dict(samples)
 
     def sample_iter(
-            self,
-            container: Optional[Dict[str, List]] = None,
-            variables: Optional[Sequence[Hashable]] = None,
-            seed: Optional[Union[int, np.random.Generator]] = None,
+        self,
+        container: Optional[Dict[str, List]] = None,
+        variables: Optional[Sequence[Hashable]] = None,
+        seed: Optional[Union[int, np.random.Generator]] = None,
     ) -> Iterator[Dict[str, List]]:
         """
         Sample method to generate data for the given variables. If no list of variables is supplied, the method will
@@ -266,11 +294,7 @@ class SCM:
             noise_gen = self.dag.nodes[node][self.noise_key]
             if noise_gen is not None:
                 noise_iters.append(
-                    sample(
-                        noise_gen,
-                        numsamples=SingletonRegistry.Infinity,
-                        seed=seed
-                    )
+                    sample(noise_gen, numsamples=SingletonRegistry.Infinity, seed=seed)
                 )
             else:
                 noise_iters.append(repeat(None))
@@ -282,26 +306,22 @@ class SCM:
         while True:
             for i, node in enumerate(vars_ordered):
                 node_attr = self.dag.nodes[node]
-                # emulate the kwarg call of the assignment by placing the args in the right position
-                arg_positions = node_attr[self.arg_positions_key]
                 predecessors = list(self.dag.predecessors(node))
-                args = [None] * (len(predecessors) + 1)
+
+                named_args = dict()
                 for pred in predecessors:
-                    args[arg_positions[pred]] = samples[pred][-1]
+                    named_args[pred] = samples[pred][-1]
 
                 noise = next(noise_iters[i])
                 if noise is not None:
-                    args[0] = noise
-                else:
-                    args = args[1:]
+                    named_args[Assignment.noise_argname] = noise
 
-                data = node_attr[self.assignment_key](*args)
+                data = node_attr[self.assignment_key](**named_args)
                 samples[node].append(data)
             yield samples
 
     def intervention(
-            self,
-            interventions: Dict[str, Tuple[Optional[str], Optional[RV]]],
+        self, interventions: Dict[str, Tuple[Optional[str], Optional[RV]]],
     ):
         """
         Method to apply interventions on the specified variables.
@@ -332,10 +352,10 @@ class SCM:
 
             if isinstance(items, dict):
                 if any(
-                        (
-                                key not in (self.assignment_key, self.noise_key)
-                                for key in items.keys()
-                        )
+                    (
+                        key not in (self.assignment_key, self.noise_key)
+                        for key in items.keys()
+                    )
                 ):
                     raise ValueError(
                         f"Intervention dictionary provided with the wrong keys.\n"
@@ -348,7 +368,7 @@ class SCM:
             elif isinstance(items, Sequence):
                 items = [elem for elem in items]
                 assert (
-                        len(items) == 2
+                    len(items) == 2
                 ), "The positional items container needs to contain exactly 2 items."
 
                 existing_attr = self[var][1]
@@ -379,7 +399,8 @@ class SCM:
                 self.dag.remove_edges_from([(parent, var) for parent in parent_backup])
             # patch up the attr dict as the provided items were merely strings and now need to be parsed by sympy.
             interventional_map[var] = (
-                attr_dict[self.assignment_key], attr_dict[self.noise_key]
+                attr_dict[self.assignment_key],
+                attr_dict[self.noise_key],
             )
         self.insert(interventional_map)
 
@@ -401,9 +422,7 @@ class SCM:
         self.intervention(interventions_dict)
 
     def soft_intervention(
-            self,
-            variables: Sequence[str],
-            noise_models: Sequence[RV],
+        self, variables: Sequence[str], noise_models: Sequence[RV],
     ):
         """
         Perform noise interventions, i.e. modifying the noise generator of specific variables.
@@ -455,11 +474,13 @@ class SCM:
                 continue
 
             self.dag.add_node(var, **attr_dict)
-            self.dag.remove_edges_from([(parent, var) for parent in self.dag.predecessors(var)])
+            self.dag.remove_edges_from(
+                [(parent, var) for parent in self.dag.predecessors(var)]
+            )
             self.dag.add_edges_from([(parent, var) for parent in parents])
 
     def d_separated(
-            self, x: Sequence[str], y: Sequence[str], s: Optional[Sequence[str]] = None
+        self, x: Sequence[str], y: Sequence[str], s: Optional[Sequence[str]] = None
     ):
         """
         Checks if all variables in X are d-separated from all variables in Y by the variables in S.
@@ -508,27 +529,53 @@ class SCM:
         if isinstance(assignments, Sequence):
             assignments = parse_assignments(assignments)
         elif not isinstance(assignments, Dict):
-            raise ValueError("Assignments parameter accepts either a Sequence[str] or an AssignmentMap.")
-        for (
-                node_name,
-                (assignment_str, noise_model)
-        ) in assignments.items():
-            parents_list = extract_parents(assignment_str, noise_model)
+            raise ValueError(
+                f"Assignments parameter accepts either be a "
+                f"Sequence[str], "
+                f"a {str(AssignmentMap).replace('typing.', '')}, "
+                f"or a {str(FunctionalMap).replace('typing.', '')}"
+            )
 
-            if len(parents_list) > 0:
-                for parent in parents_list:
+        for (node_name, assignment_pack) in assignments.items():
+            if len(assignment_pack) == 2:
+                assignment_str, noise_model = assignment_pack
+                parents = extract_parents(assignment_str, noise_model)
+
+                noise, assignment_func = sympify_assignment(
+                    parents, assignment_str, noise_model
+                )
+
+            elif len(assignment_pack) == 3:
+                parents, assignment_func, noise_model = assignment_pack
+                assert callable(
+                    assignment_func
+                ), "Assignment tuple holds 3 elements, but the functional entry is not callable."
+                assignment_str = None
+            else:
+                raise ValueError("Assignment entry must be a tuple of 2 or 3 entries.")
+
+            if len(parents) > 0:
+                for parent in parents:
                     self.dag.add_edge(parent, node_name)
             else:
                 self.roots.append(node_name)
 
-            attr_dict = self._make_attr_dict(assignment_str, parents_list, noise_model)
+            if noise_model is not None:
+                parents = [Assignment.noise_argname] + list(parents)
+
+            attr_dict = {
+                self.assignment_key: Assignment(assignment_func, parents, assignment_str),
+                self.noise_key: noise_model,
+                self.noise_repr_key: extract_rv_desc(noise_model),
+            }
 
             self.dag.add_node(
-                node_name,
-                **attr_dict,
+                node_name, **attr_dict,
             )
 
-    def seed(self, seed: Optional[Union[int, np.random.Generator, np.random.RandomState]]):
+    def seed(
+        self, seed: Optional[Union[int, np.random.Generator, np.random.RandomState]]
+    ):
         """
         Seeds the assignments.
 
@@ -546,14 +593,14 @@ class SCM:
                 raise ValueError(f"seed type {type(seed)} not supported.")
 
     def plot(
-            self,
-            draw_labels: bool = True,
-            node_size: int = 500,
-            figsize: Tuple[int, int] = (6, 4),
-            dpi: int = 150,
-            alpha: float = 0.5,
-            savepath: Optional[str] = None,
-            **kwargs,
+        self,
+        draw_labels: bool = True,
+        node_size: int = 500,
+        figsize: Tuple[int, int] = (6, 4),
+        dpi: int = 150,
+        alpha: float = 0.5,
+        savepath: Optional[str] = None,
+        **kwargs,
     ):
         """
         Plot the causal graph of the bayesian_graphs in a dependency oriented way.
@@ -649,7 +696,9 @@ class SCM:
         for node in self.dag.nodes:
             attr_dict = self[node][1]
             noise_symbol = str(attr_dict[self.noise_key])
-            parents_var = [noise_symbol] + [pred for pred in self.dag.predecessors(node)]
+            parents_var = [noise_symbol] + [
+                pred for pred in self.dag.predecessors(node)
+            ]
             args_str = ", ".join(parents_var)
             line = f"{str(node).rjust(max_var_space)} := f({args_str}) = {attr_dict[self.assignment_repr_key]}"
             # add explanation to the noise term
@@ -692,37 +741,9 @@ class SCM:
                     f"Variable '{variable}' not found in graph. Omitting it."
                 )
 
-    def _make_attr_dict(
-            self,
-            assignment_str: str,
-            parents_list: Sequence[str],
-            noise_model: Optional[RV] = None,
+    def _causal_iterator(
+        self, variables: Optional[Iterable] = None, dag: Optional[nx.DiGraph] = None
     ):
-        """
-        Build the attributes dict for a node in the graph.
-        """
-        # the map that provides the positional mapping of arg names to each assignment
-        # this is needed as assignment_str strings are lambdified and kwargs then no longer
-        # possible, so this mapping emulates just that.
-        # offset: if there is no noise model, then there is no need to reserve space for the noise variable in the
-        # assignment order.
-        offset = int(noise_model is not None)
-        args_positions = {
-            pa: pos for pa, pos in zip(parents_list, range(offset, len(parents_list) + 1))
-        }
-        noise, assignment = sympify_assignment(
-            assignment_str, parents_list, noise_model
-        )
-        attr_dict = {
-            self.assignment_key: assignment,
-            self.noise_key: noise,
-            self.assignment_repr_key: assignment_str,
-            self.noise_repr_key: extract_rv_desc(noise_model),
-            self.arg_positions_key: args_positions,
-        }
-        return attr_dict
-
-    def _causal_iterator(self, variables: Optional[Iterable] = None, dag: Optional[nx.DiGraph] = None):
         """
         Provide a causal iterator through the graph starting from the roots going to the variables needed.
 
@@ -766,16 +787,14 @@ class SCM:
             yield key
 
 
-def sympify_assignment(
-        assignment_str: str, parents: Sequence[str], noise_model: RV
-):
+def sympify_assignment(parents: Iterable[str], assignment_str: str, noise_model: RV):
     """
     Parse the provided assignment string with sympy and then lambdifies it, to be used as a normal function.
 
     Parameters
     ----------
     assignment_str: str, the assignment to parse.
-    parents: Sequence, the parents' names.
+    parents: Iterable, the parents' names.
     noise_model: RV, the random variable inside the assignment.
 
     Returns
@@ -829,13 +848,13 @@ def extract_rv_desc(rv: Optional[RV]):
 
 
 def hierarchy_pos(
-        graph: nx.Graph,
-        root=None,
-        width=1.0,
-        vert_gap=0.2,
-        vert_loc=0,
-        leaf_vs_root_factor=0.5,
-        check_for_tree=True,
+    graph: nx.Graph,
+    root=None,
+    width=1.0,
+    vert_gap=0.2,
+    vert_loc=0,
+    leaf_vs_root_factor=0.5,
+    check_for_tree=True,
 ):
     """
     If the graph is a tree this will return the positions to plot this in a
@@ -894,17 +913,17 @@ def hierarchy_pos(
             root = np.random.choice(list(graph.nodes))
 
     def __hierarchy_pos(
-            graph_,
-            root_,
-            leftmost_,
-            width_,
-            leaf_dx_=0.2,
-            vert_gap_=0.2,
-            vert_loc_=0,
-            xcenter_=0.5,
-            root_pos_=None,
-            leaf_pos_=None,
-            parent_=None,
+        graph_,
+        root_,
+        leftmost_,
+        width_,
+        leaf_dx_=0.2,
+        vert_gap_=0.2,
+        vert_loc_=0,
+        xcenter_=0.5,
+        root_pos_=None,
+        leaf_pos_=None,
+        parent_=None,
     ):
         """
         see hierarchy_pos docstring for most arguments
