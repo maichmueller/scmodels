@@ -700,7 +700,7 @@ class SCM:
                 pred for pred in self.dag.predecessors(node)
             ]
             args_str = ", ".join(parents_var)
-            line = f"{str(node).rjust(max_var_space)} := f({args_str}) = {attr_dict[self.assignment_repr_key]}"
+            line = f"{str(node).rjust(max_var_space)} := f({args_str}) = {str(attr_dict[self.assignment_key])}"
             # add explanation to the noise term
             if noise_symbol is not None:
                 line += f"\t [ {noise_symbol} ~ {str(attr_dict[self.noise_repr_key])} ]"
