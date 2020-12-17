@@ -1,4 +1,4 @@
-from scm import SCM
+from scmodels import SCM
 from sympy.stats import *
 
 def build_scm_minimal(seed=0):

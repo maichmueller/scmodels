@@ -43,7 +43,7 @@ one can describe the assignments as strings
 
 
 ```python
-from scm import SCM
+from scmodels import SCM
 
 myscm = SCM(
     [

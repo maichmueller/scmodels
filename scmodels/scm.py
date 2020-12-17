@@ -1,4 +1,4 @@
-from scm.parser import parse_assignments, extract_parents
+from scmodels.parser import parse_assignments, extract_parents
 
 import random
 import warnings

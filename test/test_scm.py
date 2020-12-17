@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from numpy.polynomial.polynomial import Polynomial
 from test.build_scm import *
-from scm.parser import parse_assignments, extract_parents
+from scmodels.parser import parse_assignments, extract_parents
 
 
 def manual_sample_linandpoly(n, dtype, names, seed):
