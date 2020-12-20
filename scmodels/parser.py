@@ -12,7 +12,7 @@ from typing import *
 
 all_stats_imports = set(all_stats_imports)
 
-var_p = regex.compile(r"(?<=([(]|[)*+-/%]))\w+(?=([)*+-/%]+|$))")
+var_p = regex.compile(r"(?<=([(]|[)*+-/%]))\w+(?=([)*+-/%]+|$))|^\w+(?=([)*+-/%]+|$))")
 digit_p = regex.compile(r"^\d+$")
 
 

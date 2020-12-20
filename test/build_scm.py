@@ -84,6 +84,7 @@ def build_scm_medium(seed=0):
             "X_4": "$X_4$",
             "X_5": "$X_5$",
         },
+        seed=seed,
     )
     return cn
 

@@ -173,14 +173,13 @@ class SCM:
         self.scm_name: str = scm_name
         self.rng_state = np.random.default_rng()  # we always have a local RNG machine
         self.seed(seed)
-        self.nr_variables: int = len(assignments)
 
         # the attribute list that any given node in the graph has.
-        (
-            self.assignment_key,
-            self.noise_key,
-            self.noise_repr_key
-        ) = ("assignment", "noise", "noise_repr")
+        (self.assignment_key, self.noise_key, self.noise_repr_key) = (
+            "assignment",
+            "noise",
+            "noise_repr",
+        )
 
         # a backup dictionary of the original assignments of the intervened variables,
         # in order to undo the interventions later.
@@ -194,17 +193,16 @@ class SCM:
         self.roots: List = []
         self.insert(assignments)
 
-        self.var = np.array(self.get_variables())
         # supply any variable name, that has not been assigned a different TeX name, with itself as TeX name.
         # This prevents missing labels in the plot method.
         if variable_tex_names is not None:
-            for name in self.var:
+            for name in self.get_variables():
                 if name not in variable_tex_names:
                     variable_tex_names[name] = name
             # the variable names as they can be used by the plot function to draw the names in TeX mode.
             self.var_draw_dict: Dict = variable_tex_names
         else:
-            self.var_draw_dict = {name: name for name in self.var}
+            self.var_draw_dict = {name: name for name in self.get_variables()}
 
     def __getitem__(self, node):
         return self.dag.pred[node], self.dag.nodes[node]
@@ -564,7 +562,9 @@ class SCM:
                 parents = [Assignment.noise_argname] + list(parents)
 
             attr_dict = {
-                self.assignment_key: Assignment(assignment_func, parents, assignment_str),
+                self.assignment_key: Assignment(
+                    assignment_func, parents, assignment_str
+                ),
                 self.noise_key: noise_model,
                 self.noise_repr_key: extract_rv_desc(noise_model),
             }
@@ -686,23 +686,29 @@ class SCM:
         str,
             the representation.
         """
+        variables = self.get_variables()
+        nr_vars = len(variables)
         lines = [
-            f"Structural Causal Model of {self.nr_variables} variables: "
-            + ", ".join(self.var),
-            f"Following variables are actively intervened on: {list(self.interventions_backup_attr.keys())}",
-            "Current Assignments are:",
+            f"Structural Causal Model of {nr_vars} "
+            + ("variables: " if nr_vars > 1 else "variable: ")
+            + ", ".join(variables[0:10])
+            + (", ..." if nr_vars > 10 else ""),
+            f"Variables with active interventions: {list(self.interventions_backup_attr.keys())}",
+            "Assignments:",
         ]
-        max_var_space = max([len(var_name) for var_name in self.var])
+        max_var_space = max([len(var_name) for var_name in variables])
         for node in self.dag.nodes:
             attr_dict = self[node][1]
-            noise_symbol = str(attr_dict[self.noise_key])
-            parents_var = [noise_symbol] + [
+            noise_symbol = attr_dict[self.noise_key]
+            parents_var = [
                 pred for pred in self.dag.predecessors(node)
             ]
+            if noise_symbol is not None:
+                parents_var = [str(noise_symbol)] + parents_var
             args_str = ", ".join(parents_var)
             line = f"{str(node).rjust(max_var_space)} := f({args_str}) = {str(attr_dict[self.assignment_key])}"
-            # add explanation to the noise term
             if noise_symbol is not None:
+                # add explanation to the noise term
                 line += f"\t [ {noise_symbol} ~ {str(attr_dict[self.noise_repr_key])} ]"
             lines.append(line)
         return "\n".join(lines)
