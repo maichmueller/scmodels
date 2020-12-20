@@ -420,27 +420,20 @@ class SCM:
         self.intervention(interventions_dict)
 
     def soft_intervention(
-        self, variables: Sequence[str], noise_models: Sequence[RV],
+        self, var_noise_pairs: Sequence[Tuple[str, RV]],
     ):
         """
-        Perform noise interventions, i.e. modifying the noise generator of specific variables.
+        Perform noise interventions, i.e. modifying the noise variable of specific variables.
 
         Convenience wrapper around ``interventions`` method.
 
         Parameters
         ----------
-        variables : Sequence,
-            the variables to intervene on.
-        noise_models : Sequence[float],
-            the constant values the chosen variables should be set to.
+        var_noise_pairs : Sequence of (variable, noise_model) tuples,
+            the variables of which to modify the noise model.
         """
-        if len(variables) != len(noise_models):
-            raise ValueError(
-                f"Got {len(variables)} variables, but {len(noise_models)} noise models."
-            )
-
         interventions_dict = dict()
-        for var, noise in zip(variables, noise_models):
+        for var, noise in var_noise_pairs:
             interventions_dict[var] = (None, noise)
         self.intervention(interventions_dict)
 
@@ -513,10 +506,9 @@ class SCM:
         """
         return nx.is_directed_acyclic_graph(self.dag)
 
-    def insert(self, assignments: Union[Sequence[str], AssignmentMap]):
+    def insert(self, assignments: Union[Sequence[str], AssignmentMap, FunctionalMap]):
         """
-        Method to insert variables into the graph. The assignments can be passed either as full string assignments or
-        via an assignment map.
+        Method to insert variables into the graph. The passable assignments are the same as for the constructor of the SCM class.
 
         Parameters
         ----------
@@ -528,13 +520,15 @@ class SCM:
             assignments = parse_assignments(assignments)
         elif not isinstance(assignments, Dict):
             raise ValueError(
-                f"Assignments parameter accepts either be a "
+                f"Assignments parameter accepts either a "
                 f"Sequence[str], "
                 f"a {str(AssignmentMap).replace('typing.', '')}, "
                 f"or a {str(FunctionalMap).replace('typing.', '')}"
             )
 
         for (node_name, assignment_pack) in assignments.items():
+
+            # a sequence of size 2 is expected to be (assignment string, noise model)
             if len(assignment_pack) == 2:
                 assignment_str, noise_model = assignment_pack
                 parents = extract_parents(assignment_str, noise_model)
@@ -543,14 +537,15 @@ class SCM:
                     parents, assignment_str, noise_model
                 )
 
+            # a sequence of size 3 is expected to be (parents list, assignment string, noise model)
             elif len(assignment_pack) == 3:
                 parents, assignment_func, noise_model = assignment_pack
                 assert callable(
                     assignment_func
-                ), "Assignment tuple holds 3 elements, but the functional entry is not callable."
+                ), "Assignment tuple holds 3 elements, but the function entry is not callable."
                 assignment_str = None
             else:
-                raise ValueError("Assignment entry must be a tuple of 2 or 3 entries.")
+                raise ValueError("Assignment entry must be a sequence of 2 or 3 entries.")
 
             if len(parents) > 0:
                 for parent in parents:
@@ -700,9 +695,7 @@ class SCM:
         for node in self.dag.nodes:
             attr_dict = self[node][1]
             noise_symbol = attr_dict[self.noise_key]
-            parents_var = [
-                pred for pred in self.dag.predecessors(node)
-            ]
+            parents_var = [pred for pred in self.dag.predecessors(node)]
             if noise_symbol is not None:
                 parents_var = [str(noise_symbol)] + parents_var
             args_str = ", ".join(parents_var)
