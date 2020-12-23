@@ -56,10 +56,14 @@ class Assignment:
     ):
         assert callable(functor), "Passed functor must be callable."
         self.functor = functor
-        self.desc = desc if desc is not None else "__custom__"
+        self._as_str = desc
         self.arg_positions = {
             var: pos for (var, pos) in zip(ordered_parents, range(len(ordered_parents)))
         }
+
+    @property
+    def as_str(self):
+        return self._as_str
 
     def __len__(self):
         return len(self.arg_positions)
@@ -72,7 +76,9 @@ class Assignment:
         return self.functor(*args)
 
     def __str__(self):
-        return self.desc
+        if self.as_str is None:
+            return "__custom__"
+        return self.as_str
 
 
 class SCM:
