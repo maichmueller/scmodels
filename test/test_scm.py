@@ -126,7 +126,10 @@ def test_scm_builds_equal_sampling():
     cn2.seed(0)
     cn3.seed(0)
     n = 10
-    samples = cn1.sample(n), cn2.sample(n), cn3.sample(n)
+    sample1 = cn1.sample(n)
+    sample2 = cn2.sample(n)
+    sample3 = cn3.sample(n)
+    samples = sample1, sample2, sample3
     for i in range(2):
         for var in cn1.get_variables():
             assert same_elements(samples[i][var].round(4), samples[i + 1][var].round(4))

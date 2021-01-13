@@ -216,6 +216,9 @@ class SCM:
     def __str__(self):
         return self.str()
 
+    def __iter__(self):
+        return self._causal_iterator()
+
     def sample(
         self,
         n: int,
@@ -325,7 +328,8 @@ class SCM:
             yield samples
 
     def intervention(
-        self, interventions: Dict[str, Tuple[Optional[str], Optional[RV]]],
+        self,
+        interventions: Dict[str, Tuple[Optional[str], Optional[RV]]],
     ):
         """
         Method to apply interventions on the specified variables.
@@ -426,7 +430,8 @@ class SCM:
         self.intervention(interventions_dict)
 
     def soft_intervention(
-        self, var_noise_pairs: Sequence[Tuple[str, RV]],
+        self,
+        var_noise_pairs: Sequence[Tuple[str, RV]],
     ):
         """
         Perform noise interventions, i.e. modifying the noise variable of specific variables.
@@ -514,7 +519,8 @@ class SCM:
 
     def insert(self, assignments: Union[Sequence[str], AssignmentMap, FunctionalMap]):
         """
-        Method to insert variables into the graph. The passable assignments are the same as for the constructor of the SCM class.
+        Method to insert variables into the graph. The passable assignments are the same as for the constructor of
+        the SCM class.
 
         Parameters
         ----------
@@ -551,7 +557,9 @@ class SCM:
                 ), "Assignment tuple holds 3 elements, but the function entry is not callable."
                 assignment_str = None
             else:
-                raise ValueError("Assignment entry must be a sequence of 2 or 3 entries.")
+                raise ValueError(
+                    "Assignment entry must be a sequence of 2 or 3 entries."
+                )
 
             if len(parents) > 0:
                 for parent in parents:
@@ -571,7 +579,8 @@ class SCM:
             }
 
             self.dag.add_node(
-                node_name, **attr_dict,
+                node_name,
+                **attr_dict,
             )
 
     def seed(
@@ -648,15 +657,15 @@ class SCM:
             the plt.figure and figure-axis objects holding the graph plot.
         """
         if nx.is_tree(self.dag):
-            pos = hierarchy_pos(self.dag, root=self.roots[0])
+            pos = hierarchy_pos(self.dag, root_node=self.roots[0])
         else:
             pos = graphviz_layout(self.dag, prog="dot")
-        plt.title(self.scm_name)
         if draw_labels:
             labels = self.var_draw_dict
         else:
             labels = {}
         fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
+        ax.set_title(self.scm_name)
         nx.draw(
             self.dag,
             pos=pos,
@@ -669,7 +678,6 @@ class SCM:
         )
         if savepath is not None:
             fig.savefig(savepath)
-        return fig, ax
 
     def str(self):
         """
@@ -747,7 +755,7 @@ class SCM:
                 )
 
     def _causal_iterator(
-        self, variables: Optional[Iterable] = None, dag: Optional[nx.DiGraph] = None
+        self, variables: Optional[Iterable] = None
     ):
         """
         Provide a causal iterator through the graph starting from the roots going to the variables needed.
@@ -767,22 +775,20 @@ class SCM:
             the node object used to denote nodes in the graph in causal order. These are usually str or ints, but can be
             any hashable type passable to a dict.
         """
-        if dag is None:
-            dag = self.dag
         if variables is None:
-            for node in nx.topological_sort(dag):
+            for node in nx.topological_sort(self.dag):
                 yield node
             return
         visited_nodes: Set = set()
         var_causal_priority: Dict = defaultdict(int)
-        queue = deque([var for var in self.filter_variable_names(variables, dag)])
+        queue = deque([var for var in self.filter_variable_names(variables, self.dag)])
         while queue:
             nn = queue.popleft()
             # this line appears to be pointless, but is necessary to emplace the node 'nn' in the dict with its current
             # value, if already present, otherwise with the default value (0).
             var_causal_priority[nn] = var_causal_priority[nn]
             if nn not in visited_nodes:
-                for parent in dag.predecessors(nn):
+                for parent in self.dag.predecessors(nn):
                     var_causal_priority[parent] = max(
                         var_causal_priority[parent], var_causal_priority[nn] + 1
                     )
@@ -854,7 +860,7 @@ def extract_rv_desc(rv: Optional[RV]):
 
 def hierarchy_pos(
     graph: nx.Graph,
-    root=None,
+    root_node=None,
     width=1.0,
     vert_gap=0.2,
     vert_loc=0,
@@ -909,13 +915,13 @@ def hierarchy_pos(
     if check_for_tree and not nx.is_tree(graph):
         raise TypeError("cannot use hierarchy_pos on a graph that is not a tree")
 
-    if root is None:
+    if root_node is None:
         if isinstance(graph, nx.DiGraph):
-            root = next(
+            root_node = next(
                 iter(nx.topological_sort(graph))
             )  # allows back compatibility with nx version 1.11
         else:
-            root = np.random.choice(list(graph.nodes))
+            root_node = np.random.choice(list(graph.nodes))
 
     def __hierarchy_pos(
         graph_,
@@ -968,13 +974,13 @@ def hierarchy_pos(
                 )
                 leaf_count += new_leaves
 
-            leftmostchild = min(
+            leftmost_child = min(
                 (x for x, y in [leaf_pos_[child] for child in children])
             )
-            rightmostchild = max(
+            rightmost_child = max(
                 (x for x, y in [leaf_pos_[child] for child in children])
             )
-            leaf_pos_[root_] = ((leftmostchild + rightmostchild) / 2, vert_loc_)
+            leaf_pos_[root_] = ((leftmost_child + rightmost_child) / 2, vert_loc_)
         else:
             leaf_count = 1
             leaf_pos_[root_] = (leftmost_, vert_loc_)
@@ -982,12 +988,12 @@ def hierarchy_pos(
         print(leaf_count)
         return root_pos_, leaf_pos_, leaf_count
 
-    xcenter = width / 2.0
+    x_center = width / 2.0
     if isinstance(graph, nx.DiGraph):
         leaf_count = len(
             [
                 node
-                for node in nx.descendants(graph, root)
+                for node in nx.descendants(graph, root_node)
                 if graph.out_degree(node) == 0
             ]
         )
@@ -995,8 +1001,8 @@ def hierarchy_pos(
         leaf_count = len(
             [
                 node
-                for node in nx.node_connected_component(graph, root)
-                if graph.degree(node) == 1 and node != root
+                for node in nx.node_connected_component(graph, root_node)
+                if graph.degree(node) == 1 and node != root_node
             ]
         )
     else:
@@ -1005,13 +1011,13 @@ def hierarchy_pos(
         )
     root_pos, leaf_pos, leaf_count = __hierarchy_pos(
         graph,
-        root,
+        root_node,
         0,
         width,
         leaf_dx_=width * 1.0 / leaf_count,
         vert_gap_=vert_gap,
         vert_loc_=vert_loc,
-        xcenter_=xcenter,
+        xcenter_=x_center,
     )
     pos = {}
     for node in root_pos:
@@ -1020,7 +1026,7 @@ def hierarchy_pos(
             + (1 - leaf_vs_root_factor) * root_pos[node][0],
             leaf_pos[node][1],
         )
-    xmax = max(x for x, y in pos.values())
+    x_max = max(x for x, y in pos.values())
     for node in pos:
-        pos[node] = (pos[node][0] * width / xmax, pos[node][1])
+        pos[node] = (pos[node][0] * width / x_max, pos[node][1])
     return pos
