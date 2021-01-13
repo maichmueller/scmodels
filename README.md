@@ -161,31 +161,7 @@ Once can sample as many samples from the SCM as needed through the method `myscm
 n = 5
 myscm.sample(n)
 ```
-
-    /home/michael/anaconda3/envs/scm/lib/python3.8/site-packages/sympy/stats/rv.py:1104: UserWarning: 
-    The return type of sample has been changed to return an iterator
-    object since version 1.7. For more information see
-    https://github.com/sympy/sympy/issues/19061
-      warnings.warn(filldedent(message))
-
-
-
-
-
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -252,30 +228,7 @@ for i in range(n):
 pd.DataFrame.from_dict(container)
 ```
 
-    /home/michael/anaconda3/envs/scm/lib/python3.8/site-packages/sympy/stats/rv.py:1104: UserWarning: 
-    The return type of sample has been changed to return an iterator
-    object since version 1.7. For more information see
-    https://github.com/sympy/sympy/issues/19061
-      warnings.warn(filldedent(message))
-
-
-
-
-
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -330,30 +283,7 @@ sample = next(myscm.sample_iter())
 pd.DataFrame.from_dict(sample)
 ```
 
-    /home/michael/anaconda3/envs/scm/lib/python3.8/site-packages/sympy/stats/rv.py:1104: UserWarning: 
-    The return type of sample has been changed to return an iterator
-    object since version 1.7. For more information see
-    https://github.com/sympy/sympy/issues/19061
-      warnings.warn(filldedent(message))
-
-
-
-
-
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
