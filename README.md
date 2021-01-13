@@ -126,8 +126,8 @@ print(myscm)
 ```
 
     Structural Causal Model of 3 variables: Z, X, Y
-    Following variables are actively intervened on: []
-    Current Assignments are:
+    Variables with active interventions: []
+    Assignments:
     Z := f(N) = N	 [ N ~ LogLogistic(alpha=1, beta=1) ]
     X := f(N, Z) = N * 3 * Z ** 2	 [ N ~ LogNormal(mean=1, std=1) ]
     Y := f(N, X, Z) = N + 2 * Z + sqrt(X)	 [ N ~ Normal(mean=2, std=1) ]
@@ -149,7 +149,7 @@ and restore the original state with
 
 
 ```python
-myscm.und_interventions()
+myscm.undo_intervention()
 ```
 
 ## Sampling
@@ -162,32 +162,7 @@ n = 5
 myscm.sample(n)
 ```
 
-If infinite sampling is desired, one can also receive a sampling generator through
-
-
-```python
-container = {var: [] for var in myscm}
-sampler = myscm.sample_iter(container)
-```
-
-`container` is an optional target dictionary to store the computed samples in.
-
-
-```python
-for i in range(n):
-    next(sampler)
-
-container
-```
-
-If the target container is not provided, the generator returns a new `dict` for every sample.
-
-
-```python
-next(myscm.sample_iter())
-```
-
-    C:\Users\Michael\.conda\envs\py38\lib\site-packages\sympy\stats\rv.py:1104: UserWarning: 
+    /home/michael/anaconda3/envs/scm/lib/python3.8/site-packages/sympy/stats/rv.py:1104: UserWarning: 
     The return type of sample has been changed to return an iterator
     object since version 1.7. For more information see
     https://github.com/sympy/sympy/issues/19061
@@ -215,41 +190,185 @@ next(myscm.sample_iter())
   <thead>
     <tr style="text-align: right;">
       <th></th>
-      <th>X</th>
       <th>Z</th>
+      <th>X</th>
       <th>Y</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <th>0</th>
-      <td>1</td>
-      <td>0.037574</td>
-      <td>2.891794</td>
+      <td>1.180157</td>
+      <td>9.639091</td>
+      <td>6.710574</td>
     </tr>
     <tr>
       <th>1</th>
-      <td>1</td>
-      <td>0.145460</td>
-      <td>0.049132</td>
+      <td>14.333794</td>
+      <td>6837.972074</td>
+      <td>112.300409</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>1</td>
-      <td>0.831458</td>
-      <td>3.944336</td>
+      <td>0.472332</td>
+      <td>1.139496</td>
+      <td>4.127573</td>
     </tr>
     <tr>
       <th>3</th>
-      <td>1</td>
-      <td>6.835975</td>
-      <td>16.333121</td>
+      <td>0.045134</td>
+      <td>0.003036</td>
+      <td>3.314156</td>
     </tr>
     <tr>
       <th>4</th>
-      <td>1</td>
-      <td>3.091106</td>
-      <td>9.645460</td>
+      <td>52.784593</td>
+      <td>61569.828834</td>
+      <td>355.470039</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+If infinite sampling is desired, one can also receive a sampling generator through
+
+
+```python
+container = {var: [] for var in myscm}
+sampler = myscm.sample_iter(container)
+```
+
+`container` is an optional target dictionary to store the computed samples in.
+
+
+```python
+import pandas as pd
+
+for i in range(n):
+    next(sampler)
+
+pd.DataFrame.from_dict(container)
+```
+
+    /home/michael/anaconda3/envs/scm/lib/python3.8/site-packages/sympy/stats/rv.py:1104: UserWarning: 
+    The return type of sample has been changed to return an iterator
+    object since version 1.7. For more information see
+    https://github.com/sympy/sympy/issues/19061
+      warnings.warn(filldedent(message))
+
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Z</th>
+      <th>X</th>
+      <th>Y</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>0.248135</td>
+      <td>2.052223</td>
+      <td>3.563350</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2.313492</td>
+      <td>33.420055</td>
+      <td>13.041783</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>0.431040</td>
+      <td>0.827393</td>
+      <td>4.088667</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>0.004687</td>
+      <td>0.000088</td>
+      <td>0.722990</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>0.169068</td>
+      <td>0.022476</td>
+      <td>3.395000</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+If the target container is not provided, the generator returns a new `dict` for every sample.
+
+
+```python
+sample = next(myscm.sample_iter())
+pd.DataFrame.from_dict(sample)
+```
+
+    /home/michael/anaconda3/envs/scm/lib/python3.8/site-packages/sympy/stats/rv.py:1104: UserWarning: 
+    The return type of sample has been changed to return an iterator
+    object since version 1.7. For more information see
+    https://github.com/sympy/sympy/issues/19061
+      warnings.warn(filldedent(message))
+
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Z</th>
+      <th>X</th>
+      <th>Y</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1.723906</td>
+      <td>38.648572</td>
+      <td>11.423317</td>
     </tr>
   </tbody>
 </table>
