@@ -31,9 +31,9 @@ def build_scm_from_assignmentstrs(seed=0):
 def build_scm_from_functionalmap(seed=0):
     cn = SCM(
         assignments={
-            "X_0": ([], lambda n: n, Normal("N", mean=0, std=1)),
-            "X_1": (["X_0"], lambda n, x0: 1 + x0 + n, Normal("N", mean=0, std=1)),
-            "X_3": (["X_0", "X_1"], lambda n, x0, x1: 0.3 * x1 + x0 + n, Normal("N", mean=0, std=1)),
+            "X_0": ([], lambda n: n, Normal("P", mean=0, std=1)),
+            "X_1": (["X_0"], lambda n, x0: 1 + x0 + n, Normal("D", mean=0, std=1)),
+            "X_3": (["X_0", "X_1"], lambda n, x0, x1: 0.3 * x1 + x0 + n, Normal("M", mean=0, std=1)),
         },
         variable_tex_names={"X_0": "$X_0$", "X_1": "$X_1$", "X_3": "$X_3$"},
         seed=seed,

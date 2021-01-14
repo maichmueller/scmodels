@@ -40,13 +40,13 @@ from typing import (
 )
 
 RV = RandomSymbol
-AssignmentMap = Dict[str, Tuple[str, RV]]
-FunctionalMap = Dict[str, Tuple[List[str], Callable, RV]]
+AssignmentSeq = Sequence[str]
+AssignmentMap = Dict[str, Union[Tuple[str, RV], Tuple[List[str], Callable, RV]]]
 
 
 class Assignment:
 
-    noise_argname = "{__noise__}"
+    noise_argname = "__{noise}__"
 
     def __init__(
         self,
@@ -77,7 +77,7 @@ class Assignment:
 
     def __str__(self):
         if self.as_str is None:
-            return "__custom__"
+            return "__unknown__"
         return self.as_str
 
 
@@ -103,7 +103,7 @@ class SCM:
 
     def __init__(
         self,
-        assignments: Union[AssignmentMap, FunctionalMap, Sequence[str]],
+        assignments: Union[AssignmentMap, AssignmentSeq],
         variable_tex_names: Optional[Dict] = None,
         seed: Optional[int] = None,
         scm_name: str = "Structural Causal Model",
@@ -329,69 +329,84 @@ class SCM:
 
     def intervention(
         self,
-        interventions: Dict[str, Tuple[Optional[str], Optional[RV]]],
+        interventions: Dict[
+            str,
+            Tuple[Optional[List[str]], Optional[Union[str, Callable]], Optional[RV]],
+        ],
     ):
         """
         Method to apply interventions on the specified variables.
 
-        One can set any variable to a new functional function and noise model, thus redefining its parents and their
+        One can set any variable to a new functional and noise model, thus redefining its parents and their
         dependency structure. Using this method will enable the user to call sample, plot etc. on the SCM just like
-        before.
+        before, but with the altered SCM.
         In order to allow for undoing the intervention(s), the original state of the variables in the network is saved
-        as backup and can be undone by calling ``undo_interventions``.
+        as backup and can be undone by calling ``undo_intervention``.
 
         Parameters
         ----------
         interventions: dict,
-            the variables as keys and their new functional as values. For the values one can
-            choose between a dictionary or a list-like.
-            - For dict: the dictionary is assumed to have the optional keys (default behaviour explained):
-                -- "function_key": str, the new assignment as str. If None, keeps current assignment.
-                -- "noise_key": sympy.rv, the new noise RV. If None, keeps current noise model.
-
-            - For sequence: the order is (assignment str, noise RV).
-                In order to omit one of these, set them to None.
+            the variables as keys and their new assignments as values. For the assignment structure
+            one has to provide a tuple of length 3 with the following positions:
+                1. The new parents of the assignment.
+                   Pass 'None' to leave the original dependencies intact.
+                2. The new assignment function. Pass as 'str' or 'callable'. If it is a callable, then either
+                   the old parent structure or the new parent structure (if provided) has to be fit with the
+                   positional input of the function.
+                   Pass 'None' to leave the original assignment intact.
+                3. The new noise distribution. Ascertain that the new distributions name symbol overlaps with
+                   the previous name symbol.
+                   Pass 'None' to leave the original noise distribution intact.
         """
         interventional_map = dict()
+
         for var, items in interventions.items():
             if var not in self.get_variables():
                 logging.warning(f"Variable '{var}' not found in graph. Omitting it.")
                 continue
 
-            if isinstance(items, dict):
-                if any(
-                    (
-                        key not in (self.assignment_key, self.noise_key)
-                        for key in items.keys()
-                    )
-                ):
-                    raise ValueError(
-                        f"Intervention dictionary provided with the wrong keys.\n"
-                        f"Observed keys are: {list(items.keys())}\n"
-                        f"Possible keys are: ['{self.assignment_key}', '{self.noise_key}']"
-                    )
-
-                attr_dict = items
-
-            elif isinstance(items, Sequence):
-                items = [elem for elem in items]
-                assert (
-                    len(items) == 2
-                ), "The positional items container needs to contain exactly 2 items."
-
-                existing_attr = self[var][1]
-                if items[0] is None:
-                    items[0] = existing_attr[self.assignment_key]
-                if items[1] is None:
-                    items[1] = existing_attr[self.noise_key]
-                attr_dict = {
-                    self.assignment_key: items[0],
-                    self.noise_key: items[1],
-                }
-
-            else:
+            if not isinstance(items, Sequence):
                 raise ValueError(
                     f"Intervention items container '{type(items)}' not supported."
+                )
+
+            items = [elem for elem in items]
+            existing_attr = self[var][1]
+            assert (
+                len(items) == 3
+            ), f"Items tuple of variable {var} has wrong length. Given {len(items)}, expected: 3"
+
+            if items[2] is None:
+                # no new noise distribution given
+                items[2] = existing_attr[self.noise_key]
+
+            if items[1] is None:
+                # no new assignment given
+                items[1] = existing_attr[self.assignment_key]
+
+            # whether the assignment is new or old: we have to parse it
+            if callable(items[1]) and items[0] is None:
+                # Rebuild the parents for the assignment, because no new parent info is given,
+                # but a callable assignment needs a parents list
+                sorted_parents = sorted(
+                    existing_attr[self.assignment_key].arg_positions.items(),
+                    key=lambda k: k[1],
+                )
+                items[0] = [
+                    parent
+                    for parent, _ in sorted_parents[
+                        1:
+                    ]  # element 0 is the noise name (must be removed)
+                ]
+            elif isinstance(items[1], str):
+                # We reach this space only if a new assignment was provided, since existing assignments are already
+                # converted to a callable.
+                # In string assignments the parents list is deduced:
+                items.pop(0)
+            else:
+                raise ValueError(
+                    f"Variable {var} has been given an unsupported assignment type. "
+                    f"Expected: str or callable, given: {type(items[1])}"
                 )
 
             if var not in self.interventions_backup_attr:
@@ -406,10 +421,7 @@ class SCM:
                 self.interventions_backup_parent[var] = parent_backup
                 self.dag.remove_edges_from([(parent, var) for parent in parent_backup])
             # patch up the attr dict as the provided items were merely strings and now need to be parsed by sympy.
-            interventional_map[var] = (
-                attr_dict[self.assignment_key],
-                attr_dict[self.noise_key],
-            )
+            interventional_map[var] = items
         self.insert(interventional_map)
 
     def do_intervention(self, var_val_pairs: Sequence[Tuple[str, float]]):
@@ -426,7 +438,7 @@ class SCM:
         """
         interventions_dict = dict()
         for var, val in var_val_pairs:
-            interventions_dict[var] = (str(val), None)
+            interventions_dict[var] = (None, str(val), None)
         self.intervention(interventions_dict)
 
     def soft_intervention(
@@ -445,7 +457,7 @@ class SCM:
         """
         interventions_dict = dict()
         for var, noise in var_noise_pairs:
-            interventions_dict[var] = (None, noise)
+            interventions_dict[var] = (None, None, noise)
         self.intervention(interventions_dict)
 
     def undo_intervention(self, variables: Optional[Sequence[str]] = None):
@@ -509,7 +521,7 @@ class SCM:
 
     def is_dag(self):
         """
-
+        Check whether the current DAG is indeed a DAG
         Returns
         -------
         bool,
@@ -517,7 +529,7 @@ class SCM:
         """
         return nx.is_directed_acyclic_graph(self.dag)
 
-    def insert(self, assignments: Union[Sequence[str], AssignmentMap, FunctionalMap]):
+    def insert(self, assignments: Union[AssignmentSeq, AssignmentMap]):
         """
         Method to insert variables into the graph. The passable assignments are the same as for the constructor of
         the SCM class.
@@ -533,9 +545,8 @@ class SCM:
         elif not isinstance(assignments, Dict):
             raise ValueError(
                 f"Assignments parameter accepts either a "
-                f"Sequence[str], "
-                f"a {str(AssignmentMap).replace('typing.', '')}, "
-                f"or a {str(FunctionalMap).replace('typing.', '')}"
+                f"Sequence[str] or "
+                f"a {str(AssignmentMap).replace('typing.', '')}."
             )
 
         for (node_name, assignment_pack) in assignments.items():
@@ -678,6 +689,7 @@ class SCM:
         )
         if savepath is not None:
             fig.savefig(savepath)
+        return fig, ax
 
     def str(self):
         """
@@ -721,10 +733,40 @@ class SCM:
         return "\n".join(lines)
 
     def get_variables(self, causal_order=True):
+        """
+        Get a list of the variables in the SCM.
+
+        Parameters
+        ----------
+        causal_order: bool (optional),
+            If True, the list is guaranteed to be in a causal dependency order starting with root nodes.
+            Defaults to True.
+
+        Returns
+        -------
+        list,
+            the variables in the SCM.
+        """
         if causal_order:
             return list(self._causal_iterator())
         else:
             return list(self.dag.nodes)
+
+    def get_variable_args(self, variable: str):
+        """
+        Returns the input arguments of the node and their position as parameter in the assignment.
+
+        Parameters
+        ----------
+        variable: str,
+            the variable of interest.
+
+        Returns
+        -------
+        dict,
+            a dictionary with the arguments as keys and their position as values
+        """
+        return self[variable][1][self.assignment_key].arg_positions
 
     @staticmethod
     def filter_variable_names(variables: Iterable, dag: nx.DiGraph):
@@ -754,9 +796,7 @@ class SCM:
                     f"Variable '{variable}' not found in graph. Omitting it."
                 )
 
-    def _causal_iterator(
-        self, variables: Optional[Iterable] = None
-    ):
+    def _causal_iterator(self, variables: Optional[Iterable] = None):
         """
         Provide a causal iterator through the graph starting from the roots going to the variables needed.
 

@@ -185,7 +185,7 @@ def test_scm_intervention():
 
     # do the intervention
     cn.intervention(
-        {"X_3": {"assignment": "N + 2.3 * X_0 + 2.3 * Y", "noise": Normal("N", 5, 2), }}
+        {"X_3": (None, "N + 2.3 * X_0 + 2.3 * Y", Normal("N", 5, 2))}
     )
     n = 10000
 

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from setuptools import setup, find_packages
+import os
 
 with open("README.md") as readme_file:
     readme = readme_file.read()
@@ -20,6 +21,13 @@ test_requirements = ["pytest"]
 extras_requirements = {"plot": ["pygraphviz", "graphviz"], "test": ["pytest"]}
 
 author = "Michael Aichmueller"
+
+# This directory
+dir_setup = os.path.dirname(os.path.realpath(__file__))
+__version__ = ""
+with open(os.path.join(dir_setup, 'scmodels', 'version.py')) as f:
+    # Defines __version__
+    exec(f.read())
 
 setup(
     author=author,
@@ -48,7 +56,7 @@ setup(
     test_suite="test",
     tests_require=test_requirements,
     extras_require=extras_requirements,
-    url="https://github.com/maichmueller/scm",
-    version="0.2.0.dev",
+    url="https://github.com/maichmueller/scmodels",
+    version=__version__,
     zip_safe=False,
 )
