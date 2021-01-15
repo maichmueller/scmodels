@@ -80,7 +80,7 @@ and a tuple defining the assignment and the noise.
 ### 2-Tuple: Assignments via SymPy parsing
 
 To refer to SymPy's string parsing capability (this includes numpy functions) provide a dict entry
-with 2-tuple of the form:
+with a 2-tuple as value of the form:
 
 `'var': ('assignment string', noise)`
 
@@ -121,7 +121,7 @@ variables as keys and as values a sequence of length 3 of the form:
 
 `'var': (['parent1', 'parent2', ...], Callable, Noise)`
 
-This allows the user to supply complex functions outside the space of predefined functions.
+This allows the user to supply complex functions outside the space of analytical functions.
 
 
 ```python
@@ -164,8 +164,6 @@ Agreements:
 
 The SCM supports a form of informative printing of its current setup,
 which includes mentioning active interventions and the assignments.
-The function declaration won't be informative if the SCM has been
-constructed with custom Callables.
 
 
 ```python
@@ -202,8 +200,8 @@ For general interventions, the passing structure is dict of the following form:
 
     {var: (New Parents (Optional), New Assignment (optional), New Noise (optional))}
 
-Any unchanged part of the original  variable state that is meant to be unchanged is to be passed as `None`.
-E.g. to assign a new callable assignment to variable `X` without changing parent or noise, one would call:
+Any part of the original variable state, that is meant to be left unchanged, has to be passed as `None`.
+E.g. to assign a new callable assignment to variable `X` without changing parents or noise, one would call:
 
 
 ```python
@@ -224,8 +222,8 @@ from sympy.stats import FiniteRV
 myscm.soft_intervention([("X", FiniteRV(str(myscm["X"].noise), density={-1: .5, 1: .5}))])
 ```
 
-Calling `undo_intervention` restores the original state of all variables from construction time. One can optionally specify,
-which interventions are to be undone by specifying a variable list (by default it undoes all):
+Calling `undo_intervention` restores the original state of all variables from construction time, that have been passed. One can optionally specify,
+If no variables are specified (`variables=None`), all interventions are undone.
 
 
 ```python
@@ -278,33 +276,33 @@ myscm.sample(n)
   <tbody>
     <tr>
       <th>0</th>
-      <td>4.703978</td>
-      <td>175.940459</td>
-      <td>25.916327</td>
+      <td>3.130168</td>
+      <td>25.518928</td>
+      <td>13.524461</td>
     </tr>
     <tr>
       <th>1</th>
-      <td>0.297556</td>
-      <td>0.083595</td>
-      <td>3.850324</td>
+      <td>0.730453</td>
+      <td>6.036398</td>
+      <td>7.148895</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>12.436177</td>
-      <td>7677.897504</td>
-      <td>113.522429</td>
+      <td>0.179568</td>
+      <td>0.156701</td>
+      <td>3.149104</td>
     </tr>
     <tr>
       <th>3</th>
-      <td>1.357861</td>
-      <td>53.234126</td>
-      <td>11.342164</td>
+      <td>0.879909</td>
+      <td>6.787311</td>
+      <td>6.056273</td>
     </tr>
     <tr>
       <th>4</th>
-      <td>1.221415</td>
-      <td>13.729146</td>
-      <td>9.006147</td>
+      <td>1.710136</td>
+      <td>20.079351</td>
+      <td>8.894617</td>
     </tr>
   </tbody>
 </table>
@@ -368,33 +366,33 @@ pd.DataFrame.from_dict(container)
   <tbody>
     <tr>
       <th>0</th>
-      <td>0.559822</td>
-      <td>1.953262</td>
-      <td>6.498119</td>
+      <td>0.341271</td>
+      <td>1.271099</td>
+      <td>4.547078</td>
     </tr>
     <tr>
       <th>1</th>
-      <td>10.660067</td>
-      <td>610.427458</td>
-      <td>48.137594</td>
+      <td>2.722751</td>
+      <td>235.765034</td>
+      <td>22.591202</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>0.352375</td>
-      <td>1.021604</td>
-      <td>2.985338</td>
+      <td>0.081638</td>
+      <td>0.107539</td>
+      <td>3.898544</td>
     </tr>
     <tr>
       <th>3</th>
-      <td>0.821680</td>
-      <td>3.021936</td>
-      <td>4.299420</td>
+      <td>2.745713</td>
+      <td>210.743838</td>
+      <td>21.806575</td>
     </tr>
     <tr>
       <th>4</th>
-      <td>2.304742</td>
-      <td>28.855881</td>
-      <td>11.735227</td>
+      <td>1.528015</td>
+      <td>9.768679</td>
+      <td>9.058807</td>
     </tr>
   </tbody>
 </table>
@@ -446,9 +444,9 @@ pd.DataFrame.from_dict(sample)
   <tbody>
     <tr>
       <th>0</th>
-      <td>1.435369</td>
-      <td>25.468685</td>
-      <td>11.333064</td>
+      <td>0.399457</td>
+      <td>3.369994</td>
+      <td>6.946475</td>
     </tr>
   </tbody>
 </table>
