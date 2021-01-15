@@ -71,13 +71,15 @@ def test_parsing():
     func_map = parse_assignments([test_str])
     assert func_map["Z_1"][0] == "Noise + 2*log(Y)"
     assert str(func_map["Z_1"][1]) == "Noise"
-    assert extract_parents(func_map["Z_1"][0], "Noise") == {"Y"}
+    assert extract_parents(func_map["Z_1"][0], "Noise") == ["Y"]
 
     test_str = "X = N + sqrt(X_45 ** M + 342 * 2) / (  43 * FG_2) + P, N ~ Normal(0,1)"
     func_map = parse_assignments([test_str])
     assert func_map["X"][0] == "N + sqrt(X_45 ** M + 342 * 2) / (  43 * FG_2) + P"
     assert str(func_map["X"][1]) == "N"
-    assert same_elements(extract_parents(func_map["X"][0], "N"), {"X_45", "M", "FG_2", "P"})
+    assert same_elements(
+        extract_parents(func_map["X"][0], "N"), ["X_45", "M", "FG_2", "P"]
+    )
 
 
 def test_scm_from_strings():
@@ -92,10 +94,45 @@ def test_scm_from_strings():
     assert same_elements(scm.get_variables(), ["X", "Y_0", "Y_1", "Z"])
 
 
-def test_scm_build():
-    cn = build_scm_simple()
+def test_scm_build_from_assignmentmap():
+    cn = build_scm_from_assignmentmap()
     nodes_in_graph = sorted(cn.get_variables())
-    assert same_elements(nodes_in_graph, ["X_0", "X_1", "X_2", "X_3", "X_4", "X_5", "Y"])
+    assert same_elements(nodes_in_graph, ["X_0", "X_1", "X_3"])
+    assert same_elements(cn["X_3"].parents, ["X_0", "X_1"])
+    assert same_elements(cn["X_1"].parents, ["X_0"])
+
+
+def test_scm_build_from_functionalmap():
+    cn = build_scm_from_functionalmap()
+    nodes_in_graph = sorted(cn.get_variables())
+    assert same_elements(nodes_in_graph, ["X_0", "X_1", "X_3"])
+    assert same_elements(cn["X_3"].parents, ["X_0", "X_1"])
+    assert same_elements(cn["X_1"].parents, ["X_0"])
+
+
+def test_scm_build_from_assignmentstrs():
+    cn = build_scm_from_assignmentstrs()
+    nodes_in_graph = sorted(cn.get_variables())
+    assert same_elements(nodes_in_graph, ["X_0", "X_1", "X_3"])
+    assert same_elements(cn["X_3"].parents, ["X_0", "X_1"])
+    assert same_elements(cn["X_1"].parents, ["X_0"])
+
+
+def test_scm_builds_equal_sampling():
+    cn1 = build_scm_from_assignmentmap()
+    cn2 = build_scm_from_functionalmap()
+    cn3 = build_scm_from_assignmentstrs()
+    cn1.seed(0)
+    cn2.seed(0)
+    cn3.seed(0)
+    n = 10
+    sample1 = cn1.sample(n)
+    sample2 = cn2.sample(n)
+    sample3 = cn3.sample(n)
+    samples = sample1, sample2, sample3
+    for i in range(2):
+        for var in cn1.get_variables():
+            assert same_elements(samples[i][var].round(4), samples[i + 1][var].round(4))
 
 
 def test_scm_sample_partial():
@@ -148,27 +185,24 @@ def test_scm_intervention():
 
     # do the intervention
     cn.intervention(
-        {
-            "X_3": {
-                "assignment": "N + 2.3 * X_0 + 2.3 * Y",
-                "noise": Normal("N", 5, 2),
-            }
-        }
+        {"X_3": (None, "N + 2.3 * X_0 + 2.3 * Y", Normal("N", 5, 2))}
     )
     n = 10000
 
     scm_sample_interv = cn.sample(n)
-    sample = np.empty((n, 5), dtype=scm_sample_interv.values.dtype)
     rng = np.random.default_rng(seed)
-    noise_func = lambda size: rng.normal(loc=0, scale=1, size=size)
-    sample = manual_sample_linandpoly(n, dtype=np.float, names=cn.get_variables(), seed=cn.rng_state)
-    sample["X_3"] = rng.normal(loc=5, scale=2, size=n) + 2.3 * (sample["X_0"] + sample["Y"])
+    sample = manual_sample_linandpoly(
+        n, dtype=np.float, names=cn.get_variables(), seed=cn.rng_state
+    )
+    sample["X_3"] = rng.normal(loc=5, scale=2, size=n) + 2.3 * (
+            sample["X_0"] + sample["Y"]
+    )
     sample = sample[cn.get_variables()]
 
     manual_mean = sample.mean(0)
     scm_mean = scm_sample_interv.mean(0)
     exp_diff = (manual_mean - scm_mean).abs().values
-    assert (exp_diff < .5).all()
+    assert (exp_diff < 0.5).all()
 
     # from here on the cn should work as normal again
     cn.undo_intervention()
@@ -203,8 +237,28 @@ def test_scm_dointervention():
     assert (diff == 0.0).all()
 
 
+def test_scm_softintervention():
+    seed = 0
+    cn = build_scm_linandpoly(seed=seed)
+    n = 100
+    standard_sample = cn.sample(n, seed=seed)
+    # do the intervention
+    cn.soft_intervention([("X_2", FiniteRV(str(cn["X_2"].noise), density={0: 1.}))])
+    sample = cn.sample(n)
+    assignment = cn["X_2"].assignment
+    manual_x2 = assignment(0, sample["X_0"], sample["X_1"])
+    diff = (sample["X_2"] - manual_x2).abs()
+    assert np.all(diff == 0.0)
+
+    # from here on the cn should work as normal again
+    cn.undo_intervention()
+    new_sample = cn.sample(n, seed=seed)
+    diff = (standard_sample.mean(0) - new_sample.mean(0)).abs().values
+    assert np.all(diff == 0.0)
+
+
 def test_sample_iter():
-    cn = build_scm_minimal()
+    cn = build_scm_from_assignmentmap()
     samples = {var: [] for var in cn.get_variables()}
     rng1 = np.random.default_rng(seed=0)
     rng2 = np.random.default_rng(seed=0)
@@ -227,13 +281,7 @@ def test_reproducibility():
 
 
 def test_none_noise():
-    cn = SCM(
-        [
-            "X = 1",
-            "Y = N + X, N ~ Normal(0,1)"
-        ],
-        seed=0
-    )
+    cn = SCM(["X = 1", "Y = N + X, N ~ Normal(0,1)"], seed=0)
     n = 10
     sample = cn.sample(n)
     manual_y = np.random.default_rng(0).normal(size=n) + 1

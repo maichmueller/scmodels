@@ -1,4 +1,4 @@
-sympy>=1.6
+sympy>=1.7.1
 networkx>=2.0
 pandas>=1.0
 scipy>=1.3
