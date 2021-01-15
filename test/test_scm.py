@@ -71,14 +71,14 @@ def test_parsing():
     func_map = parse_assignments([test_str])
     assert func_map["Z_1"][0] == "Noise + 2*log(Y)"
     assert str(func_map["Z_1"][1]) == "Noise"
-    assert extract_parents(func_map["Z_1"][0], "Noise") == {"Y"}
+    assert extract_parents(func_map["Z_1"][0], "Noise") == ["Y"]
 
     test_str = "X = N + sqrt(X_45 ** M + 342 * 2) / (  43 * FG_2) + P, N ~ Normal(0,1)"
     func_map = parse_assignments([test_str])
     assert func_map["X"][0] == "N + sqrt(X_45 ** M + 342 * 2) / (  43 * FG_2) + P"
     assert str(func_map["X"][1]) == "N"
     assert same_elements(
-        extract_parents(func_map["X"][0], "N"), {"X_45", "M", "FG_2", "P"}
+        extract_parents(func_map["X"][0], "N"), ["X_45", "M", "FG_2", "P"]
     )
 
 
