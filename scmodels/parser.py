@@ -55,7 +55,7 @@ def parse_assignments(assignment_strs: Sequence[str]):
     return functional_map
 
 
-def extract_parents(assignment_str: str, noise_var: Union[str, sympy.Symbol]) -> Set[str]:
+def extract_parents(assignment_str: str, noise_var: Union[str, sympy.Symbol]) -> List[str]:
     """
     Extract the parent variables in an assignment string.
 
@@ -80,11 +80,12 @@ def extract_parents(assignment_str: str, noise_var: Union[str, sympy.Symbol]) ->
 
     Returns
     -------
-    set,
+    list,
         the parents found in the string
     """
     noise_var = str(noise_var)
-    parents = set()
+    # set does not preserve insertion order so we need to bypass this issue with a list
+    parents = []
     for match_obj in var_p.finditer(strip_whitespaces(assignment_str)):
         matched_str = match_obj.group()
         if digit_p.search(matched_str) is not None:
@@ -93,8 +94,8 @@ def extract_parents(assignment_str: str, noise_var: Union[str, sympy.Symbol]) ->
         else:
             # the matched str is considered a full variable name
             if not matched_str == noise_var:
-                parents.add(matched_str)
-    return parents
+                parents.append(matched_str)
+    return list(dict.fromkeys(parents))
 
 
 def allocate_noise_model(noise_assignment: str):

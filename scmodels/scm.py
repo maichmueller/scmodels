@@ -101,6 +101,31 @@ class SCM:
     at this stage.
     """
 
+    # the attribute list that any given node in the graph has.
+    (assignment_key, noise_key, noise_repr_key) = (
+        "assignment",
+        "noise",
+        "noise_repr",
+    )
+
+    class NodeView:
+        """
+        A view of the variable's associated attributes
+        """
+        def __init__(
+            self,
+            var: str,
+            parents: List[str],
+            assignment: Assignment,
+            noise: RV,
+            noise_repr: str
+        ):
+            self.variable = var
+            self.parents = parents
+            self.assignment = assignment
+            self.noise = noise
+            self.noise_repr = noise_repr
+
     def __init__(
         self,
         assignments: Union[AssignmentMap, AssignmentSeq],
@@ -180,13 +205,6 @@ class SCM:
         self.rng_state = np.random.default_rng()  # we always have a local RNG machine
         self.seed(seed)
 
-        # the attribute list that any given node in the graph has.
-        (self.assignment_key, self.noise_key, self.noise_repr_key) = (
-            "assignment",
-            "noise",
-            "noise_repr",
-        )
-
         # a backup dictionary of the original assignments of the intervened variables,
         # in order to undo the interventions later.
         self.interventions_backup_attr: Dict = dict()
@@ -210,8 +228,13 @@ class SCM:
         else:
             self.var_draw_dict = {name: name for name in self.get_variables()}
 
-    def __getitem__(self, node):
-        return self.dag.pred[node], self.dag.nodes[node]
+    def __getitem__(self, var):
+        attr_dict = self.dag.nodes[var]
+        return SCM.NodeView(
+            var,
+            self.dag.pred[var],
+            **attr_dict
+        )
 
     def __str__(self):
         return self.str()
@@ -371,25 +394,25 @@ class SCM:
                 )
 
             items = [elem for elem in items]
-            existing_attr = self[var][1]
+            existing_attr = self[var]
             assert (
                 len(items) == 3
             ), f"Items tuple of variable {var} has wrong length. Given {len(items)}, expected: 3"
 
             if items[2] is None:
                 # no new noise distribution given
-                items[2] = existing_attr[self.noise_key]
+                items[2] = existing_attr.noise
 
             if items[1] is None:
                 # no new assignment given
-                items[1] = existing_attr[self.assignment_key]
+                items[1] = existing_attr.assignment
 
             # whether the assignment is new or old: we have to parse it
             if callable(items[1]) and items[0] is None:
                 # Rebuild the parents for the assignment, because no new parent info is given,
                 # but a callable assignment needs a parents list
                 sorted_parents = sorted(
-                    existing_attr[self.assignment_key].arg_positions.items(),
+                    self.get_variable_args(var).items(),
                     key=lambda k: k[1],
                 )
                 items[0] = [
@@ -413,7 +436,7 @@ class SCM:
                 # the variable has NOT already been backed up. If we overwrite it now it is fine. If it had already been
                 # in the backup, then it we would need to pass on this step, in order to not overwrite the backup
                 # (possibly with a previous intervention)
-                self.interventions_backup_attr[var] = deepcopy(self[var][1])
+                self.interventions_backup_attr[var] = deepcopy(self.dag.nodes[var])
 
             if var not in self.interventions_backup_parent:
                 # the same logic goes for the parents backup.
@@ -719,20 +742,20 @@ class SCM:
         ]
         max_var_space = max([len(var_name) for var_name in variables])
         for node in self.dag.nodes:
-            attr_dict = self[node][1]
-            noise_symbol = attr_dict[self.noise_key]
+            node_view = self[node]
+            noise_symbol = node_view.noise
             parents_var = [pred for pred in self.dag.predecessors(node)]
             if noise_symbol is not None:
                 parents_var = [str(noise_symbol)] + parents_var
             args_str = ", ".join(parents_var)
-            line = f"{str(node).rjust(max_var_space)} := f({args_str}) = {str(attr_dict[self.assignment_key])}"
+            line = f"{str(node).rjust(max_var_space)} := f({args_str}) = {str(node_view.assignment)}"
             if noise_symbol is not None:
                 # add explanation to the noise term
-                line += f"\t [ {noise_symbol} ~ {str(attr_dict[self.noise_repr_key])} ]"
+                line += f"\t [ {noise_symbol} ~ {str(node_view.noise_repr)} ]"
             lines.append(line)
         return "\n".join(lines)
 
-    def get_variables(self, causal_order=True):
+    def get_variables(self, causal_order=True) -> List[str]:
         """
         Get a list of the variables in the SCM.
 
@@ -766,7 +789,7 @@ class SCM:
         dict,
             a dictionary with the arguments as keys and their position as values
         """
-        return self[variable][1][self.assignment_key].arg_positions
+        return self[variable].assignment.arg_positions
 
     @staticmethod
     def filter_variable_names(variables: Iterable, dag: nx.DiGraph):

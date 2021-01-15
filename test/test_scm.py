@@ -98,24 +98,24 @@ def test_scm_build_from_assignmentmap():
     cn = build_scm_from_assignmentmap()
     nodes_in_graph = sorted(cn.get_variables())
     assert same_elements(nodes_in_graph, ["X_0", "X_1", "X_3"])
-    assert same_elements(cn["X_3"][0], ["X_0", "X_1"])
-    assert same_elements(cn["X_1"][0], ["X_0"])
+    assert same_elements(cn["X_3"].parents, ["X_0", "X_1"])
+    assert same_elements(cn["X_1"].parents, ["X_0"])
 
 
 def test_scm_build_from_functionalmap():
     cn = build_scm_from_functionalmap()
     nodes_in_graph = sorted(cn.get_variables())
     assert same_elements(nodes_in_graph, ["X_0", "X_1", "X_3"])
-    assert same_elements(cn["X_3"][0], ["X_0", "X_1"])
-    assert same_elements(cn["X_1"][0], ["X_0"])
+    assert same_elements(cn["X_3"].parents, ["X_0", "X_1"])
+    assert same_elements(cn["X_1"].parents, ["X_0"])
 
 
 def test_scm_build_from_assignmentstrs():
     cn = build_scm_from_assignmentstrs()
     nodes_in_graph = sorted(cn.get_variables())
     assert same_elements(nodes_in_graph, ["X_0", "X_1", "X_3"])
-    assert same_elements(cn["X_3"][0], ["X_0", "X_1"])
-    assert same_elements(cn["X_1"][0], ["X_0"])
+    assert same_elements(cn["X_3"].parents, ["X_0", "X_1"])
+    assert same_elements(cn["X_1"].parents, ["X_0"])
 
 
 def test_scm_builds_equal_sampling():
@@ -190,9 +190,7 @@ def test_scm_intervention():
     n = 10000
 
     scm_sample_interv = cn.sample(n)
-    sample = np.empty((n, 5), dtype=scm_sample_interv.values.dtype)
     rng = np.random.default_rng(seed)
-    noise_func = lambda size: rng.normal(loc=0, scale=1, size=size)
     sample = manual_sample_linandpoly(
         n, dtype=np.float, names=cn.get_variables(), seed=cn.rng_state
     )
@@ -237,6 +235,26 @@ def test_scm_dointervention():
     new_sample = cn.sample(n, seed=seed)
     diff = (standard_sample.mean(0) - new_sample.mean(0)).abs().values
     assert (diff == 0.0).all()
+
+
+def test_scm_softintervention():
+    seed = 0
+    cn = build_scm_linandpoly(seed=seed)
+    n = 100
+    standard_sample = cn.sample(n, seed=seed)
+    # do the intervention
+    cn.soft_intervention([("X_2", FiniteRV(str(cn["X_2"].noise), density={0: 1.}))])
+    sample = cn.sample(n)
+    assignment = cn["X_2"].assignment
+    manual_x2 = assignment(0, sample["X_0"], sample["X_1"])
+    diff = (sample["X_2"] - manual_x2).abs()
+    assert np.all(diff == 0.0)
+
+    # from here on the cn should work as normal again
+    cn.undo_intervention()
+    new_sample = cn.sample(n, seed=seed)
+    diff = (standard_sample.mean(0) - new_sample.mean(0)).abs().values
+    assert np.all(diff == 0.0)
 
 
 def test_sample_iter():
