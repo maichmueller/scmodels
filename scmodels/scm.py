@@ -106,8 +106,9 @@ class SCM:
     """
 
     # the attribute list that any given node in the graph has.
-    (assignment_key, noise_key, noise_repr_key) = (
+    (assignment_key, rv_key, noise_key, noise_repr_key) = (
         "assignment",
+        "rv",
         "noise",
         "noise_repr",
     )
@@ -122,12 +123,14 @@ class SCM:
             var: str,
             parents: List[str],
             assignment: Assignment,
+            rv: RV,
             noise: RV,
             noise_repr: str,
         ):
             self.variable = var
             self.parents = parents
             self.assignment = assignment
+            self.rv = rv
             self.noise = noise
             self.noise_repr = noise_repr
 
@@ -580,12 +583,13 @@ class SCM:
                 assignment_str, noise_model = assignment_pack
                 parents = extract_parents(assignment_str, noise_model)
 
-                noise, assignment_func = sympify_assignment(
+                noise, assignment_func, rv = self.sympify_assignment(
                     parents, assignment_str, noise_model
                 )
 
             # a sequence of size 3 is expected to be (parents list, assignment string, noise model)
             elif len(assignment_pack) == 3:
+                # TODO: Allow the creation of the assignment RV here.
                 parents, assignment_func, noise_model = assignment_pack
                 assert callable(
                     assignment_func
@@ -609,6 +613,7 @@ class SCM:
                 self.assignment_key: Assignment(
                     assignment_func, parents, assignment_str
                 ),
+                self.rv_key: rv,
                 self.noise_key: noise_model,
                 self.noise_repr_key: extract_rv_desc(noise_model),
             }
@@ -867,40 +872,53 @@ class SCM:
             yield key
 
 
-def sympify_assignment(parents: Iterable[str], assignment_str: str, noise_model: RV):
-    """
-    Parse the provided assignment string with sympy and then lambdifies it, to be used as a normal function.
+    def sympify_assignment(self, parents: Iterable[str], assignment_str: str, noise_model: RV):
+        """
+        Parse the provided assignment string with sympy and then lambdifies it, to be used as a normal function.
 
-    Parameters
-    ----------
-    assignment_str: str, the assignment to parse.
-    parents: Iterable, the parents' names.
-    noise_model: RV, the random variable inside the assignment.
+        Parameters
+        ----------
+        assignment_str: str, the assignment to parse.
+        parents: Iterable, the parents' names.
+        noise_model: RV, the random variable inside the assignment.
 
-    Returns
-    -------
-    function,
-        the lambdified assignment.
-    """
+        Returns
+        -------
+        function,
+            the lambdified assignment.
+        """
 
-    symbols = []
-    if noise_model is not None:
-        symbols.append(noise_model)
-        # let the noise models variable name be known as symbol. This is necessary for sympifying.
-        exec(f"{str(noise_model)} = noise_model")
-    for par in parents:
-        exec(f"{par} = sympy.Symbol('{par}')")
-        symbols.append(eval(par))
-    assignment = sympy.sympify(eval(assignment_str))
-    try:
-        assignment = sympy.lambdify(symbols, assignment, "numpy")
-    except NameError as e:
-        warnings.warn(
-            f"The assignment string could not be resolved in numpy, the error message reads: {e}\n"
-            f"Lambdifying without numpy.",
-        )
-        assignment = sympy.lambdify(symbols, assignment)
-    return noise_model, assignment
+        # the first time around the string is sympified into an evaluable function only.
+        # We therefore need all RandomSymbols as simple Symbols
+        symbols = []
+        if noise_model is not None:
+            symbols.append(noise_model)
+            # let the noise models variable name be known as symbol. This is necessary for sympifying.
+            exec(f"{str(noise_model)} = sympy.Symbol('{noise_model}')")
+        for par in parents:
+            exec(f"{par} = sympy.Symbol('{par}')")
+            symbols.append(eval(par))
+        assignment = sympy.sympify(eval(assignment_str))
+        try:
+            assignment = sympy.lambdify(symbols, assignment, "numpy")
+        except NameError as e:
+            warnings.warn(
+                f"The assignment string could not be resolved in numpy, the error message reads: {e}\n"
+                f"Lambdifying without numpy.",
+            )
+            assignment = sympy.lambdify(symbols, assignment)
+
+        # the second time around we overwrite the symbols with the actual RVs
+        # to produce the assignment as RV itself
+        if noise_model is not None:
+            symbols.append(noise_model)
+            # let the noise models variable name be known as symbol. This is necessary for sympifying.
+            exec(f"{str(noise_model)} = noise_model")
+        for par in parents:
+            par_rv = self[par].rv
+            exec(f"{str(par)} = par_rv")
+        rv = sympy.sympify(eval(assignment_str))
+        return noise_model, assignment, rv
 
 
 def extract_rv_desc(rv: Optional[RV]):
