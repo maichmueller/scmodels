@@ -17,7 +17,7 @@ from copy import deepcopy
 import sympy
 from sympy.core.singleton import SingletonRegistry
 from sympy.functions import *
-from sympy.stats import sample
+from sympy.stats import sample, random_symbols
 from sympy.stats.rv import RandomSymbol
 
 from typing import (
@@ -46,39 +46,43 @@ AssignmentMap = Dict[str, Union[Tuple[str, RV], Tuple[List[str], Callable, RV]]]
 
 class Assignment:
 
-    noise_argname = "__{noise}__"
+    noise_argname = "_noise_"
 
     def __init__(
         self,
         functor: Callable,
-        ordered_parents: Sequence[str],
+        parents: Sequence[str],
         desc: Optional[str] = None,
     ):
         assert callable(functor), "Passed functor must be callable."
         self.functor = functor
-        self._as_str = desc
-        self.arg_positions = {
-            var: pos for (var, pos) in zip(ordered_parents, range(len(ordered_parents)))
+        self._descriptor = desc
+        self.parents_order = {
+            par: pos for (par, pos) in zip(parents, range(len(parents)))
         }
 
     @property
-    def as_str(self):
-        return self._as_str
+    def descriptor(self):
+        return self._descriptor
 
     def __len__(self):
-        return len(self.arg_positions)
+        return len(self.parents_order)
+
+    def __getitem__(self, parent: str):
+        # returns the parameter position of the given parent
+        return self.parents_order[parent]
 
     def __call__(self, *args, **kwargs):
         args = list(args) + [None] * (len(self) - len(args))
         for var in kwargs:
-            if var in self.arg_positions:
-                args[self.arg_positions[var]] = kwargs[var]
+            if var in self.parents_order:
+                args[self.parents_order[var]] = kwargs[var]
         return self.functor(*args)
 
     def __str__(self):
-        if self.as_str is None:
-            return "__unknown__"
-        return self.as_str
+        if self.descriptor is None:
+            return "_unknown_"
+        return self.descriptor
 
 
 class SCM:
@@ -112,13 +116,14 @@ class SCM:
         """
         A view of the variable's associated attributes
         """
+
         def __init__(
             self,
             var: str,
             parents: List[str],
             assignment: Assignment,
             noise: RV,
-            noise_repr: str
+            noise_repr: str,
         ):
             self.variable = var
             self.parents = parents
@@ -230,11 +235,7 @@ class SCM:
 
     def __getitem__(self, var):
         attr_dict = self.dag.nodes[var]
-        return SCM.NodeView(
-            var,
-            self.dag.pred[var],
-            **attr_dict
-        )
+        return SCM.NodeView(var, self.dag.pred[var], **attr_dict)
 
     def __str__(self):
         return self.str()
@@ -745,13 +746,18 @@ class SCM:
             node_view = self[node]
             noise_symbol = node_view.noise
             parents_var = [pred for pred in self.dag.predecessors(node)]
+            noise_str = (
+                str(noise_symbol)
+                if isinstance(noise_symbol, RV)
+                else Assignment.noise_argname
+            )
             if noise_symbol is not None:
-                parents_var = [str(noise_symbol)] + parents_var
+                parents_var = [noise_str] + parents_var
             args_str = ", ".join(parents_var)
             line = f"{str(node).rjust(max_var_space)} := f({args_str}) = {str(node_view.assignment)}"
             if noise_symbol is not None:
                 # add explanation to the noise term
-                line += f"\t [ {noise_symbol} ~ {str(node_view.noise_repr)} ]"
+                line += f"\t [ {noise_str} ~ {str(node_view.noise_repr)} ]"
             lines.append(line)
         return "\n".join(lines)
 
@@ -789,7 +795,7 @@ class SCM:
         dict,
             a dictionary with the arguments as keys and their position as values
         """
-        return self[variable].assignment.arg_positions
+        return self[variable].assignment.parents_order
 
     @staticmethod
     def filter_variable_names(variables: Iterable, dag: nx.DiGraph):
@@ -913,12 +919,28 @@ def extract_rv_desc(rv: Optional[RV]):
     if rv is None:
         return str(None)
 
-    dist = rv.pspace.args[1]
-    argnames = dist._argnames
-    args = dist.args
-    dist_name = str(dist).split("(", 1)[0].replace("Distribution", "")
-    full_rv_str = f"{dist_name}({', '.join([f'{arg}={val}' for arg, val in zip(argnames, args)])})"
-    return full_rv_str
+    def rv_string(rv):
+        dist = rv.pspace.args[1]
+        argnames = dist._argnames
+        args = dist.args
+        dist_name = str(dist).split("(", 1)[0].replace("Distribution", "")
+        return f"{dist_name}({', '.join([f'{arg}={val}' for arg, val in zip(argnames, args)])})"
+
+    desc = []
+    if isinstance(rv, RV):
+        desc.append(rv_string(rv))
+    else:
+        # append first its str definition
+        desc.append(str(rv))
+        desc.append("with")
+        # now add all inner RVs
+        arg_strs = []
+        for rsymbol in random_symbols(rv):
+            arg_strs.append(f"{rsymbol} ~ {rv_string(rsymbol)}")
+
+        desc.append(", ".join(arg_strs))
+
+    return " ".join(desc)
 
 
 def hierarchy_pos(
