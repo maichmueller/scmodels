@@ -1,6 +1,5 @@
 from scmodels.parser import parse_assignments, extract_parents
 
-import random
 import warnings
 
 import numpy as np
@@ -27,14 +26,9 @@ from typing import (
     Tuple,
     Iterable,
     Set,
-    Mapping,
-    Sequence,
-    Collection,
     Optional,
     Hashable,
     Sequence,
-    Type,
-    Generator,
     Iterator,
     Callable,
 )
@@ -583,9 +577,10 @@ class SCM:
                 assignment_str, noise_model = assignment_pack
                 parents = extract_parents(assignment_str, noise_model)
 
-                noise, assignment_func, rv = self.sympify_assignment(
+                assignment_func = lambdify_assignment(
                     parents, assignment_str, noise_model
                 )
+                rv = sympify_assignment(self, parents, assignment_str, noise_model)
 
             # a sequence of size 3 is expected to be (parents list, assignment string, noise model)
             elif len(assignment_pack) == 3:
@@ -595,6 +590,15 @@ class SCM:
                     assignment_func
                 ), "Assignment tuple holds 3 elements, but the function entry is not callable."
                 assignment_str = None
+                try:
+                    rv = sympify_assignment(self, parents, assignment_func, noise_model)
+                except TypeError:
+                    # RV construction only works with SymPy known functions.
+                    # If foreign functions are provided (e.g. numpy) then the
+                    # functionality of an actual RV of the assigned variable
+                    # cannot be provided.
+                    rv = None
+
             else:
                 raise ValueError(
                     "Assignment entry must be a sequence of 2 or 3 entries."
@@ -766,7 +770,7 @@ class SCM:
             lines.append(line)
         return "\n".join(lines)
 
-    def get_variables(self, causal_order=True) -> List[str]:
+    def get_variables(self, causal_order: bool = True) -> List[str]:
         """
         Get a list of the variables in the SCM.
 
@@ -872,53 +876,91 @@ class SCM:
             yield key
 
 
-    def sympify_assignment(self, parents: Iterable[str], assignment_str: str, noise_model: RV):
-        """
-        Parse the provided assignment string with sympy and then lambdifies it, to be used as a normal function.
+def lambdify_assignment(
+     parents: Iterable[str], assignment_str: str, noise_model: RV
+):
+    """
+    Parse the provided assignment string with sympy and then lambdifies it, to be used as a normal function.
 
-        Parameters
-        ----------
-        assignment_str: str, the assignment to parse.
-        parents: Iterable, the parents' names.
-        noise_model: RV, the random variable inside the assignment.
+    Parameters
+    ----------
+    assignment_str: str,
+        the assignment to parse.
+    parents: Iterable,
+        the parents' names.
+    noise_model: RV,
+        the random variable inside the assignment.
 
-        Returns
-        -------
-        function,
-            the lambdified assignment.
-        """
+    Returns
+    -------
+    function,
+        the lambdified assignment.
+    """
 
-        # the first time around the string is sympified into an evaluable function only.
-        # We therefore need all RandomSymbols as simple Symbols
-        symbols = []
-        if noise_model is not None:
-            symbols.append(noise_model)
-            # let the noise models variable name be known as symbol. This is necessary for sympifying.
-            exec(f"{str(noise_model)} = sympy.Symbol('{noise_model}')")
-        for par in parents:
-            exec(f"{par} = sympy.Symbol('{par}')")
-            symbols.append(eval(par))
-        assignment = sympy.sympify(eval(assignment_str))
-        try:
-            assignment = sympy.lambdify(symbols, assignment, "numpy")
-        except NameError as e:
-            warnings.warn(
-                f"The assignment string could not be resolved in numpy, the error message reads: {e}\n"
-                f"Lambdifying without numpy.",
-            )
-            assignment = sympy.lambdify(symbols, assignment)
+    # the assignment string is sympified into an evaluable function only.
+    # We therefore need all RandomSymbols as simple Symbols
+    symbols = []
+    if noise_model is not None:
+        symbols.append(noise_model)
+        # Allocate the noise model variable as normal symbol. This is necessary for lambdifying.
+        exec(f"{str(noise_model)} = sympy.Symbol('{noise_model}')")
+    for par in parents:
+        exec(f"{par} = sympy.Symbol('{par}')")
+        symbols.append(eval(par))
+    assignment = sympy.sympify(eval(assignment_str))
+    try:
+        assignment = sympy.lambdify(symbols, assignment, "numpy")
+    except NameError as e:
+        warnings.warn(
+            f"The assignment string could not be resolved in numpy, the error message reads: {e}\n"
+            f"Lambdifying without numpy.",
+        )
+        assignment = sympy.lambdify(symbols, assignment)
 
-        # the second time around we overwrite the symbols with the actual RVs
-        # to produce the assignment as RV itself
-        if noise_model is not None:
-            symbols.append(noise_model)
-            # let the noise models variable name be known as symbol. This is necessary for sympifying.
-            exec(f"{str(noise_model)} = noise_model")
-        for par in parents:
-            par_rv = self[par].rv
-            exec(f"{str(par)} = par_rv")
-        rv = sympy.sympify(eval(assignment_str))
-        return noise_model, assignment, rv
+    return assignment
+
+
+def sympify_assignment(
+    scm: SCM, parents: Iterable[str], assignment: Union[str, Callable], noise_model: RV
+):
+    """
+    Parse the provided assignment string with sympy and then sympify it, to be used as a random variable.
+
+    Parameters
+    ----------
+    scm: SCM,
+        The scm is needed for variable RV lookup.
+    assignment: str,
+        the assignment to parse.
+    parents: Iterable,
+        the parents' names.
+    noise_model: RV,
+        the random variable inside the assignment.
+
+    Returns
+    -------
+    RV,
+        the sympified assignment.
+    """
+    symbols = []
+    # we allocate the symbols with the actual RVs to produce the assignment as RV itself
+    if noise_model is not None:
+        symbols.append(noise_model)
+        # Allocate the noise model variable as random symbol
+        exec(f"{str(noise_model)} = noise_model")
+    for par in parents:
+        par_rv = scm[par].rv
+        exec(f"{str(par)} = par_rv")
+        exec(f"symbols.append({str(par)})")
+    if isinstance(assignment, str):
+        rv = sympy.sympify(eval(assignment))
+    elif callable(assignment):
+        rv = assignment(*symbols)
+    else:
+        raise ValueError(
+            f"Passed assignment has to be str or callable. Given: {type(assignment)}."
+        )
+    return rv
 
 
 def extract_rv_desc(rv: Optional[RV]):
