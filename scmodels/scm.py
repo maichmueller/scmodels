@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import networkx as nx
 from networkx.drawing.nx_agraph import graphviz_layout
-from collections import deque, defaultdict
+from collections import deque, defaultdict, namedtuple
 from itertools import repeat
 
 import matplotlib.pyplot as plt
@@ -40,7 +40,7 @@ AssignmentMap = Dict[str, Union[Tuple[str, RV], Tuple[List[str], Callable, RV]]]
 
 class Assignment:
 
-    noise_argname = "_noise_"
+    noise_argname = "__noise__"
 
     def __init__(
         self,
@@ -75,7 +75,7 @@ class Assignment:
 
     def __str__(self):
         if self.descriptor is None:
-            return "_unknown_"
+            return "__unknown__"
         return self.descriptor
 
 
@@ -83,15 +83,11 @@ class SCM:
     """
     Class building a Structural Causal Model.
 
-    With this class one can sample causally from the underlying graph and also perform do-interventions and
+    With this class one can sample causally from the underlying graph and perform interventions. Do-interventions and
     soft-interventions, as well as more general interventions targeting one or more variables with arbitrary
-    changes to the assignment and/or noise structure (including parent-child relationship changes).
+    changes to the assignment and/or noise structure (including parent-child relationship changes) are supported.
 
     For visualization aid, the SCM can plot itself and also print a summary of itself to the console.
-    To this end, the decision was made to limit the potential input to the SCM objects in terms of
-    functional and noise functors.
-    If a user wishes to add a custom functional or noise function to their usage of the SCM, they will need
-    to provide implementations inheriting from the respective base classes of noise or functional.
 
     Notes
     -----
@@ -107,26 +103,10 @@ class SCM:
         "noise_repr",
     )
 
-    class NodeView:
-        """
-        A view of the variable's associated attributes
-        """
-
-        def __init__(
-            self,
-            var: str,
-            parents: List[str],
-            assignment: Assignment,
-            rv: RV,
-            noise: RV,
-            noise_repr: str,
-        ):
-            self.variable = var
-            self.parents = parents
-            self.assignment = assignment
-            self.rv = rv
-            self.noise = noise
-            self.noise_repr = noise_repr
+    NodeView = namedtuple(
+        "NodeView",
+        f"variable, parents, {assignment_key}, {rv_key}, {noise_key}, {noise_repr_key}",
+    )
 
     def __init__(
         self,
@@ -876,9 +856,7 @@ class SCM:
             yield key
 
 
-def lambdify_assignment(
-     parents: Iterable[str], assignment_str: str, noise_model: RV
-):
+def lambdify_assignment(parents: Iterable[str], assignment_str: str, noise_model: RV):
     """
     Parse the provided assignment string with sympy and then lambdifies it, to be used as a normal function.
 
