@@ -103,10 +103,25 @@ class SCM:
         "noise_repr",
     )
 
-    NodeView = namedtuple(
-        "NodeView",
-        f"variable, parents, {assignment_key}, {rv_key}, {noise_key}, {noise_repr_key}",
-    )
+    class NodeView:
+        """
+        A view of the variable's associated attributes
+        """
+        def __init__(
+                self,
+                var: str,
+                parents: List[str],
+                assignment: Assignment,
+                rv: RV,
+                noise: RV,
+                noise_repr: str,
+        ):
+            self.variable = var
+            self.parents = parents
+            self.assignment = assignment
+            self.rv = rv
+            self.noise = noise
+            self.noise_repr = noise_repr
 
     def __init__(
         self,
@@ -856,7 +871,9 @@ class SCM:
             yield key
 
 
-def lambdify_assignment(parents: Iterable[str], assignment_str: str, noise_model: RV):
+def lambdify_assignment(
+     parents: Iterable[str], assignment_str: str, noise_model: RV
+):
     """
     Parse the provided assignment string with sympy and then lambdifies it, to be used as a normal function.
 
