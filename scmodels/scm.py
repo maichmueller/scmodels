@@ -107,14 +107,15 @@ class SCM:
         """
         A view of the variable's associated attributes
         """
+
         def __init__(
-                self,
-                var: str,
-                parents: List[str],
-                assignment: Assignment,
-                rv: RV,
-                noise: RV,
-                noise_repr: str,
+            self,
+            var: str,
+            parents: List[str],
+            assignment: Assignment,
+            rv: RV,
+            noise: RV,
+            noise_repr: str,
         ):
             self.variable = var
             self.parents = parents
@@ -579,7 +580,6 @@ class SCM:
 
             # a sequence of size 3 is expected to be (parents list, assignment string, noise model)
             elif len(assignment_pack) == 3:
-                # TODO: Allow the creation of the assignment RV here.
                 parents, assignment_func, noise_model = assignment_pack
                 assert callable(
                     assignment_func
@@ -608,10 +608,9 @@ class SCM:
             if noise_model is not None:
                 parents = [Assignment.noise_argname] + list(parents)
 
+            assignment = Assignment(assignment_func, parents, assignment_str)
             attr_dict = {
-                self.assignment_key: Assignment(
-                    assignment_func, parents, assignment_str
-                ),
+                self.assignment_key: assignment,
                 self.rv_key: rv,
                 self.noise_key: noise_model,
                 self.noise_repr_key: extract_rv_desc(noise_model),
@@ -871,9 +870,7 @@ class SCM:
             yield key
 
 
-def lambdify_assignment(
-     parents: Iterable[str], assignment_str: str, noise_model: RV
-):
+def lambdify_assignment(parents: Iterable[str], assignment_str: str, noise_model: RV):
     """
     Parse the provided assignment string with sympy and then lambdifies it, to be used as a normal function.
 
@@ -990,8 +987,8 @@ def extract_rv_desc(rv: Optional[RV]):
         desc.append("with")
         # now add all inner RVs
         arg_strs = []
-        for rsymbol in random_symbols(rv):
-            arg_strs.append(f"{rsymbol} ~ {rv_string(rsymbol)}")
+        for random_symbol in random_symbols(rv):
+            arg_strs.append(f"{random_symbol} ~ {rv_string(random_symbol)}")
 
         desc.append(", ".join(arg_strs))
 
