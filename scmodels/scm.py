@@ -193,7 +193,7 @@ class SCM:
             for each passed variable name in the form: {"VarName": "VarName_in_TeX"}.
             Any variable that is missing in the dictionary will be assumed to accept its current name as the TeX
             version.
-            If not provided defaults to the input names in the functional map.
+            If not provided, defaults to the input names in the functional map.
         seed: (optional) str,
             Seeding the graph for reproducibility.
         scm_name: (optional) str,
@@ -608,7 +608,7 @@ class SCM:
             if noise_model is not None:
                 parents = [Assignment.noise_argname] + list(parents)
 
-            assignment = Assignment(assignment_func, parents, assignment_str)
+            assignment = Assignment(assignment_func, parents, desc=assignment_str)
             attr_dict = {
                 self.assignment_key: assignment,
                 self.rv_key: rv,
