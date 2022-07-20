@@ -1,43 +1,40 @@
-from scmodels.parser import parse_assignments, extract_parents
-
+import logging
 import random
 import warnings
-
-import numpy as np
-import pandas as pd
-import networkx as nx
-from networkx.drawing.nx_agraph import graphviz_layout
-from collections import deque, defaultdict
-from itertools import repeat
+from collections import defaultdict, deque
+from copy import deepcopy
+from itertools import chain, repeat
+from operator import methodcaller
+from typing import (
+    Callable,
+    Collection,
+    Dict,
+    Generator,
+    Hashable,
+    Iterable,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
 
 import matplotlib.pyplot as plt
-import logging
-from copy import deepcopy
-
+import networkx as nx
+import numpy as np
+import pandas as pd
 import sympy
+from networkx.drawing.nx_agraph import graphviz_layout
 from sympy.core.singleton import SingletonRegistry
 from sympy.functions import *
 from sympy.stats import sample
 from sympy.stats.rv import RandomSymbol
 
-from typing import (
-    List,
-    Union,
-    Dict,
-    Tuple,
-    Iterable,
-    Set,
-    Mapping,
-    Sequence,
-    Collection,
-    Optional,
-    Hashable,
-    Sequence,
-    Type,
-    Generator,
-    Iterator,
-    Callable,
-)
+from scmodels.parser import extract_parents, parse_assignments
 
 RV = RandomSymbol
 AssignmentSeq = Sequence[str]
@@ -112,13 +109,14 @@ class SCM:
         """
         A view of the variable's associated attributes
         """
+
         def __init__(
             self,
             var: str,
             parents: List[str],
             assignment: Assignment,
             noise: RV,
-            noise_repr: str
+            noise_repr: str,
         ):
             self.variable = var
             self.parents = parents
@@ -230,17 +228,20 @@ class SCM:
 
     def __getitem__(self, var):
         attr_dict = self.dag.nodes[var]
-        return SCM.NodeView(
-            var,
-            self.dag.pred[var],
-            **attr_dict
-        )
+        return SCM.NodeView(var, self.dag.pred[var], **attr_dict)
 
     def __str__(self):
         return self.str()
 
     def __iter__(self):
         return self._causal_iterator()
+
+    def merge_dicts(self, dicts: List):
+        dd = defaultdict(list)
+        dict_items = map(methodcaller("items"), (*dicts,))
+        for k, v in chain.from_iterable(dict_items):
+            dd[k].extend(v if isinstance(object, list) else [v])
+        return dd
 
     def sample(
         self,
@@ -268,27 +269,32 @@ class SCM:
             the dataframe containing the samples of all the variables needed for the selection.
         """
 
-        samples = dict()
         if seed is None:
             seed = self.rng_state
 
-        for node in self._causal_iterator(variables):
-            node_attr = self.dag.nodes[node]
-            predecessors = list(self.dag.predecessors(node))
+        samples_list = []
+        for _ in range(n):
+            samples = dict()
+            for node in self._causal_iterator(variables):
+                node_attr = self.dag.nodes[node]
+                predecessors = list(self.dag.predecessors(node))
 
-            named_args = dict()
-            for pred in predecessors:
-                named_args[pred] = samples[pred]
+                named_args = dict()
+                for pred in predecessors:
+                    named_args[pred] = samples[pred]
 
-            noise_gen = node_attr[self.noise_key]
-            if noise_gen is not None:
-                named_args[Assignment.noise_argname] = np.array(
-                    list(sample(noise_gen, numsamples=n, seed=seed)), dtype=float
-                )
+                noise_gen = node_attr[self.noise_key]
 
-            data = node_attr[self.assignment_key](**named_args)
-            samples[node] = data
-        return pd.DataFrame.from_dict(samples)
+                sample_named_args = {}
+                if noise_gen is not None:
+                    sample_named_args[Assignment.noise_argname] = np.array(
+                        list(sample(noise_gen, size=(1,), seed=seed)), dtype=float
+                    )
+                data = node_attr[self.assignment_key](**named_args, **sample_named_args)
+                samples[node] = data
+            samples_list.append(samples)
+
+        return pd.DataFrame.from_dict(self.merge_dicts(samples_list))
 
     def sample_iter(
         self,
