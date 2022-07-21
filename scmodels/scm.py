@@ -16,7 +16,7 @@ from copy import deepcopy
 import sympy
 from sympy.core.singleton import SingletonRegistry
 from sympy.functions import *
-from sympy.stats import sample, random_symbols
+from sympy.stats import sample, sample_iter, random_symbols
 from sympy.stats.rv import RandomSymbol
 
 from typing import (
@@ -276,7 +276,7 @@ class SCM:
 
             noise_gen = node_attr[self.noise_key]
             if noise_gen is not None:
-                named_args[Assignment.noise_argname] = np.array(
+                named_args[Assignment.noise_argname] = np.asarray(
                     list(sample(noise_gen, numsamples=n, seed=seed)), dtype=float
                 )
 
@@ -318,7 +318,7 @@ class SCM:
             noise_gen = self.dag.nodes[node][self.noise_key]
             if noise_gen is not None:
                 noise_iters.append(
-                    sample(noise_gen, numsamples=SingletonRegistry.Infinity, seed=seed)
+                    sample_iter(noise_gen, numsamples=SingletonRegistry.Infinity, seed=np.random.default_rng(seed))
                 )
             else:
                 noise_iters.append(repeat(None))
