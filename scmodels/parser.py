@@ -47,15 +47,15 @@ def parse_assignments(assignment_strs: Sequence[str]):
         if len(assign_noise_split) == 1:
             # this is the case when there was no ',' separating functional body and noise distribution specification
             assign_str = assign_noise_split[0]
-            model_sym = None
+            model_sym = []
         else:
             assign_str, noise_str = assign_noise_split
-            _, model_sym = allocate_noise_model(strip_whitespaces(noise_str))
+            _, model_sym = allocate_noise_model(strip_whitespaces(noise_str).split("/"))
         functional_map[assign_var.strip()] = assign_str.strip(), model_sym
     return functional_map
 
 
-def extract_parents(assignment_str: str, noise_var: Union[str, sympy.Symbol]) -> List[str]:
+def extract_parents(assignment_str: str, noise_var: List[Union[str, sympy.Symbol]]) -> List[str]:
     """
     Extract the parent variables in an assignment string.
 
@@ -84,7 +84,7 @@ def extract_parents(assignment_str: str, noise_var: Union[str, sympy.Symbol]) ->
         the parents found in the string
     """
     noise_var = str(noise_var)
-    # set does not preserve insertion order so we need to bypass this issue with a list
+    # set does not preserve insertion order, so we need to bypass this issue with a list
     parents = []
     for match_obj in var_p.finditer(strip_whitespaces(assignment_str)):
         matched_str = match_obj.group()
@@ -93,21 +93,29 @@ def extract_parents(assignment_str: str, noise_var: Union[str, sympy.Symbol]) ->
             continue
         else:
             # the matched str is considered a full variable name
-            if not matched_str == noise_var:
+            if not matched_str in noise_var:
                 parents.append(matched_str)
+    # the idea of the return value is to remove duplicates while preserving the insertion order.
+    # 'set' would do the same as dict.fromkeys, however, 'set' discards the order,
+    # while dict.fromkeys preserves order! That is why we cannot simply call set followed by list here,
+    # without creating the wrong causal order in our list.
+    # (This is also faster than list(np.unique(parents)), as per benchmark)
     return list(dict.fromkeys(parents))
 
 
-def allocate_noise_model(noise_assignment: str):
-    noise_var, model = noise_assignment.split("~")
-    par_idx = model.find("(") + 1
-    if model[:par_idx-1] not in all_stats_imports:
-        # crude check whether the noise model is supported
-        raise ValueError(f"noise model {model[:par_idx-1]} not supported.")
-    model = model[:par_idx] + r'"' + noise_var + r'",' + model[par_idx:]
-    model_sym = []
-    exec(f"model_sym.append({model})")
-    return noise_var, model_sym[0]
+def allocate_noise_model(noise_assignments: List[str]):
+    model_symbs = [None] * len(noise_assignments)
+    noise_vars = [None] * len(noise_assignments)
+    for i, noise_assignment in enumerate(noise_assignments):
+        noise_var, model = noise_assignment.split("~")
+        noise_vars[i] = noise_var
+        par_idx = model.find("(") + 1
+        if model[:par_idx-1] not in all_stats_imports:
+            # crude check whether the noise model is supported
+            raise ValueError(f"noise model {model[:par_idx-1]} not supported. Check for spelling errors.")
+        model = model[:par_idx] + r'"' + noise_var + r'",' + model[par_idx:]
+        exec(f"model_symbs[i] = {model}")
+    return noise_vars, model_symbs
 
 
 def strip_whitespaces(s: str):

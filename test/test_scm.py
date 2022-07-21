@@ -70,7 +70,7 @@ def test_parsing():
     test_str = "Z_1 = Noise + 2*log(Y), Noise ~ Normal(0,1)"
     func_map = parse_assignments([test_str])
     assert func_map["Z_1"][0] == "Noise + 2*log(Y)"
-    assert str(func_map["Z_1"][1]) == "Noise"
+    assert str(func_map["Z_1"][1][0]) == "Noise"
     assert extract_parents(func_map["Z_1"][0], "Noise") == ["Y"]
 
     test_str = "X = N + sqrt(X_45 ** M + 342 * 2) / (  43 * FG_2) + P, N ~ Normal(0,1)"
@@ -295,3 +295,11 @@ def test_none_noise():
     manual_y = np.random.default_rng(0).normal(size=n) + 1
     assert (sample["X"] == 1).all()
     assert (sample["Y"] == manual_y).all()
+
+
+def test_compositional_noise():
+    cn = SCM(["X = 1", "Y = N**2 + X, N ~ Normal(0,1)", "Z = T*M + Y, M ~ Exponential(1) / T ~ StudentT(0.5)"], seed=0)
+    samples = cn.sample(100)
+    print(samples)
+    print(cn)
+    assert True

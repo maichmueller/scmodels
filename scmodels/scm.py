@@ -1,24 +1,8 @@
-from scmodels.parser import parse_assignments, extract_parents
-
-import warnings
-
-import numpy as np
-import pandas as pd
-import networkx as nx
-from networkx.drawing.nx_agraph import graphviz_layout
-from collections import deque, defaultdict, namedtuple
-from itertools import repeat
-
-import matplotlib.pyplot as plt
 import logging
+import warnings
+from collections import deque, defaultdict
 from copy import deepcopy
-
-import sympy
-from sympy.core.singleton import SingletonRegistry
-from sympy.functions import *
-from sympy.stats import sample, sample_iter, random_symbols
-from sympy.stats.rv import RandomSymbol
-
+from itertools import repeat
 from typing import (
     List,
     Union,
@@ -33,24 +17,30 @@ from typing import (
     Callable,
 )
 
+import matplotlib.pyplot as plt
+import networkx as nx
+import numpy as np
+import pandas as pd
+import sympy
+from networkx.drawing.nx_agraph import graphviz_layout
+from sympy.core.singleton import SingletonRegistry
+from sympy.stats import sample, sample_iter, random_symbols
+from sympy.stats.rv import RandomSymbol
+
+from scmodels.parser import parse_assignments, extract_parents
+
 RV = RandomSymbol
 AssignmentSeq = Sequence[str]
 AssignmentMap = Dict[str, Union[Tuple[str, RV], Tuple[List[str], Callable, RV]]]
 
 
 class Assignment:
-
-    noise_argname = "__noise__"
-
     def __init__(
-        self,
-        functor: Callable,
-        parents: Sequence[str],
-        desc: Optional[str] = None,
+        self, functor: Callable, parents: Sequence[str], desc: Optional[str] = None,
     ):
         assert callable(functor), "Passed functor must be callable."
-        self.functor = functor
         self._descriptor = desc
+        self.functor = functor
         self.parents_order = {
             par: pos for (par, pos) in zip(parents, range(len(parents)))
         }
@@ -77,6 +67,13 @@ class Assignment:
         if self.descriptor is None:
             return "__unknown__"
         return self.descriptor
+
+    @staticmethod
+    def noise_argname(name: Union[str, RV]):
+        if isinstance(name, RV):
+            return f"__noise-{str(name)}__"
+        else:
+            return f"__noise{'-' if name else ''}{name}__"
 
 
 class SCM:
@@ -274,11 +271,12 @@ class SCM:
             for pred in predecessors:
                 named_args[pred] = samples[pred]
 
-            noise_gen = node_attr[self.noise_key]
-            if noise_gen is not None:
-                named_args[Assignment.noise_argname] = np.asarray(
-                    list(sample(noise_gen, numsamples=n, seed=seed)), dtype=float
-                )
+            noise_gens = node_attr[self.noise_key]
+            if noise_gens is not None:
+                for noise_gen in noise_gens:
+                    named_args[Assignment.noise_argname(str(noise_gen))] = np.asarray(
+                        list(sample(noise_gen, numsamples=n, seed=seed)), dtype=float
+                    )
 
             data = node_attr[self.assignment_key](**named_args)
             samples[node] = data
@@ -315,13 +313,21 @@ class SCM:
         vars_ordered = list(self._causal_iterator(variables))
         noise_iters = []
         for node in vars_ordered:
-            noise_gen = self.dag.nodes[node][self.noise_key]
-            if noise_gen is not None:
-                noise_iters.append(
-                    sample_iter(noise_gen, numsamples=SingletonRegistry.Infinity, seed=np.random.default_rng(seed))
-                )
+            noise_gens = self.dag.nodes[node][self.noise_key]
+            if noise_gens is not None:
+                for noise_gen in noise_gens:
+                    noise_iters.append(
+                        (
+                            Assignment.noise_argname(noise_gen),
+                            sample_iter(
+                                noise_gen,
+                                numsamples=SingletonRegistry.Infinity,
+                                seed=np.random.default_rng(seed),
+                            ),
+                        )
+                    )
             else:
-                noise_iters.append(repeat(None))
+                noise_iters.append((None, repeat(None)))
 
         if container is None:
             samples = {var: [] for var in vars_ordered}
@@ -336,9 +342,10 @@ class SCM:
                 for pred in predecessors:
                     named_args[pred] = samples[pred][-1]
 
-                noise = next(noise_iters[i])
+                noise_name, noise_iter = noise_iters[i]
+                noise = next(noise_iter)
                 if noise is not None:
-                    named_args[Assignment.noise_argname] = noise
+                    named_args[noise_name] = noise
 
                 data = node_attr[self.assignment_key](**named_args)
                 samples[node].append(data)
@@ -406,8 +413,7 @@ class SCM:
                 # Rebuild the parents for the assignment, because no new parent info is given,
                 # but a callable assignment needs a parents list
                 sorted_parents = sorted(
-                    self.get_variable_args(var).items(),
-                    key=lambda k: k[1],
+                    self.get_variable_args(var).items(), key=lambda k: k[1],
                 )
                 items[0] = [
                     parent
@@ -459,8 +465,7 @@ class SCM:
         self.intervention(interventions_dict)
 
     def soft_intervention(
-        self,
-        var_noise_pairs: Sequence[Tuple[str, RV]],
+        self, var_noise_pairs: Sequence[Tuple[str, RV]],
     ):
         """
         Perform noise interventions, i.e. modifying the noise variable of specific variables.
@@ -570,29 +575,31 @@ class SCM:
 
             # a sequence of size 2 is expected to be (assignment string, noise model)
             if len(assignment_pack) == 2:
-                assignment_str, noise_model = assignment_pack
-                parents = extract_parents(assignment_str, noise_model)
+                assignment_str, noise_model_list = assignment_pack
+                parents = extract_parents(assignment_str, noise_model_list)
 
                 assignment_func = lambdify_assignment(
-                    parents, assignment_str, noise_model
+                    parents, assignment_str, noise_model_list
                 )
-                rv = sympify_assignment(self, parents, assignment_str, noise_model)
+                rv = sympify_assignment(self, parents, assignment_str, noise_model_list)
 
             # a sequence of size 3 is expected to be (parents list, assignment string, noise model)
             elif len(assignment_pack) == 3:
-                parents, assignment_func, noise_model = assignment_pack
+                parents, assignment_func, noise_model_list = assignment_pack
                 assert callable(
                     assignment_func
                 ), "Assignment tuple holds 3 elements, but the function entry is not callable."
                 assignment_str = None
                 try:
-                    rv = sympify_assignment(self, parents, assignment_func, noise_model)
+                    rv = sympify_assignment(
+                        self, parents, assignment_func, noise_model_list
+                    )
                 except TypeError:
                     # RV construction only works with SymPy known functions.
                     # If foreign functions are provided (e.g. numpy) then the
                     # functionality of an actual RV of the assigned variable
                     # cannot be provided.
-                    rv = None
+                    rv = []
 
             else:
                 raise ValueError(
@@ -605,20 +612,19 @@ class SCM:
             else:
                 self.roots.append(node_name)
 
-            if noise_model is not None:
-                parents = [Assignment.noise_argname] + list(parents)
+            for noise_model in noise_model_list:
+                parents = [Assignment.noise_argname(noise_model)] + list(parents)
 
             assignment = Assignment(assignment_func, parents, desc=assignment_str)
             attr_dict = {
                 self.assignment_key: assignment,
                 self.rv_key: rv,
-                self.noise_key: noise_model,
-                self.noise_repr_key: extract_rv_desc(noise_model),
+                self.noise_key: noise_model_list,
+                self.noise_repr_key: extract_rv_desc(noise_model_list),
             }
 
             self.dag.add_node(
-                node_name,
-                **attr_dict,
+                node_name, **attr_dict,
             )
 
     def seed(
@@ -746,21 +752,26 @@ class SCM:
         ]
         max_var_space = max([len(var_name) for var_name in variables])
         for node in self.dag.nodes:
+            parents_vars = [pred for pred in self.dag.predecessors(node)]
             node_view = self[node]
-            noise_symbol = node_view.noise
-            parents_var = [pred for pred in self.dag.predecessors(node)]
-            noise_str = (
-                str(noise_symbol)
-                if isinstance(noise_symbol, RV)
-                else Assignment.noise_argname
-            )
-            if noise_symbol is not None:
-                parents_var = [noise_str] + parents_var
-            args_str = ", ".join(parents_var)
+            noise_vars = []
+            for noise_symbol in node_view.noise:
+                noise_str = (
+                    str(noise_symbol)
+                    if isinstance(noise_symbol, RV)
+                    else Assignment.noise_argname("")
+                )
+                noise_vars.append(noise_str)
+            parents_vars = noise_vars + parents_vars
+            args_str = ", ".join(parents_vars)
             line = f"{str(node).rjust(max_var_space)} := f({args_str}) = {str(node_view.assignment)}"
-            if noise_symbol is not None:
+            if noise_vars:
                 # add explanation to the noise term
-                line += f"\t [ {noise_str} ~ {str(node_view.noise_repr)} ]"
+                noise_definitions = [
+                    f"{noise_str} ~ {str(noise_repr)}"
+                    for noise_str, noise_repr in zip(noise_vars, node_view.noise_repr)
+                ]
+                line += f"\t [ " f"{', '.join(noise_definitions)}" f" ]"
             lines.append(line)
         return "\n".join(lines)
 
@@ -870,7 +881,9 @@ class SCM:
             yield key
 
 
-def lambdify_assignment(parents: Iterable[str], assignment_str: str, noise_model: RV):
+def lambdify_assignment(
+    parents: Iterable[str], assignment_str: str, noise_model_list: Optional[List[RV]]
+):
     """
     Parse the provided assignment string with sympy and then lambdifies it, to be used as a normal function.
 
@@ -892,7 +905,7 @@ def lambdify_assignment(parents: Iterable[str], assignment_str: str, noise_model
     # the assignment string is sympified into an evaluable function only.
     # We therefore need all RandomSymbols as simple Symbols
     symbols = []
-    if noise_model is not None:
+    for noise_model in noise_model_list:
         symbols.append(noise_model)
         # Allocate the noise model variable as normal symbol. This is necessary for lambdifying.
         exec(f"{str(noise_model)} = sympy.Symbol('{noise_model}')")
@@ -913,7 +926,10 @@ def lambdify_assignment(parents: Iterable[str], assignment_str: str, noise_model
 
 
 def sympify_assignment(
-    scm: SCM, parents: Iterable[str], assignment: Union[str, Callable], noise_model: RV
+    scm: SCM,
+    parents: Iterable[str],
+    assignment: Union[str, Callable],
+    noise_model_list: Optional[List[RV]],
 ):
     """
     Parse the provided assignment string with sympy and then sympify it, to be used as a random variable.
@@ -936,7 +952,7 @@ def sympify_assignment(
     """
     symbols = []
     # we allocate the symbols with the actual RVs to produce the assignment as RV itself
-    if noise_model is not None:
+    for noise_model in noise_model_list:
         symbols.append(noise_model)
         # Allocate the noise model variable as random symbol
         exec(f"{str(noise_model)} = noise_model")
@@ -955,7 +971,7 @@ def sympify_assignment(
     return rv
 
 
-def extract_rv_desc(rv: Optional[RV]):
+def extract_rv_desc(rvs: Optional[List[RV]]):
     """
     Extracts a human readable string description of the random variable.
 
@@ -968,31 +984,48 @@ def extract_rv_desc(rv: Optional[RV]):
     -------
     str, the description.
     """
-    if rv is None:
-        return str(None)
+    all_descs = []
+    if rvs is not None:
+        for rv in rvs:
 
-    def rv_string(rv):
-        dist = rv.pspace.args[1]
-        argnames = dist._argnames
-        args = dist.args
-        dist_name = str(dist).split("(", 1)[0].replace("Distribution", "")
-        return f"{dist_name}({', '.join([f'{arg}={val}' for arg, val in zip(argnames, args)])})"
+            def rv_string(rv):
+                dist = rv.pspace.args[1]
+                argnames = dist._argnames
+                args = dist.args
+                dist_name = str(dist).split("(", 1)[0].replace("Distribution", "")
+                # sympy has its own data types 'Int' and 'Float' which are not python's 'int' and 'float'.
+                # Those floats need help in order to be pretty printed so we defer to numpy's formatter, instead
+                # in the case of floats. Ints are printed just fine
+                kwargs_with_values = [
+                    arg
+                    + "="
+                    + np.array2string(
+                        np.asarray(float(val)),
+                        formatter={"float_kind": lambda x: "%g" % x},
+                    )
+                    if isinstance(val, (float, sympy.Float))
+                    else arg + "=" + str(val)
+                    for arg, val in zip(argnames, args)
+                ]
+                return f"{dist_name}({', '.join(kwargs_with_values)})"
 
-    desc = []
-    if isinstance(rv, RV):
-        desc.append(rv_string(rv))
+            desc = []
+            if isinstance(rv, RV):
+                desc.append(rv_string(rv))
+            else:
+                # append first its str definition
+                desc.append(str(rv))
+                desc.append("with")
+                # now add all inner RVs
+                arg_strs = []
+                for random_symbol in random_symbols(rv):
+                    arg_strs.append(f"{random_symbol} ~ {rv_string(random_symbol)}")
+
+                desc.append(", ".join(arg_strs))
+            all_descs.append(" ".join(desc))
+        return all_descs
     else:
-        # append first its str definition
-        desc.append(str(rv))
-        desc.append("with")
-        # now add all inner RVs
-        arg_strs = []
-        for random_symbol in random_symbols(rv):
-            arg_strs.append(f"{random_symbol} ~ {rv_string(random_symbol)}")
-
-        desc.append(", ".join(arg_strs))
-
-    return " ".join(desc)
+        return str(None)
 
 
 def hierarchy_pos(
