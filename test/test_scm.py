@@ -299,7 +299,11 @@ def test_none_noise():
 
 def test_compositional_noise():
     cn = SCM(["X = 1", "Y = N**2 + X, N ~ Normal(0,1)", "Z = T*M + Y, M ~ Exponential(1) / T ~ StudentT(0.5)"], seed=0)
-    samples = cn.sample(100)
-    print(samples)
-    print(cn)
-    assert True
+    n = 100
+    samples = cn.sample(n)
+    rng = np.random.default_rng(0)
+    manual_y = (rng.normal(size=n))**2 + 1
+    manual_z = rng.exponential(scale=1, size=n) * rng.standard_t(df=0.5, size=n) + manual_y
+    assert (samples["X"] == 1).all()
+    assert np.isclose(np.mean(samples["Y"]), np.mean(manual_y))
+    assert np.isclose(np.mean(samples["Z"]), np.mean(manual_z))
