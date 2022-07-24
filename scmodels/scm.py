@@ -26,6 +26,7 @@ from networkx.drawing.nx_agraph import graphviz_layout
 from sympy.core.singleton import SingletonRegistry
 from sympy.stats import sample, sample_iter, random_symbols
 from sympy.stats.rv import RandomSymbol
+from sympy.functions import *
 
 from scmodels.parser import parse_assignments, extract_parents
 
@@ -314,7 +315,7 @@ class SCM:
         noise_iters = []
         for node in vars_ordered:
             noise_gens = self.dag.nodes[node][self.noise_key]
-            if noise_gens is not None:
+            if noise_gens:
                 for noise_gen in noise_gens:
                     noise_iters.append(
                         (
@@ -573,9 +574,11 @@ class SCM:
 
         for (node_name, assignment_pack) in assignments.items():
 
-            # a sequence of size 2 is expected to be (assignment string, noise model)
+            # a sequence of size 2 is expected to be (assignment string, noise model or List[noise model])
             if len(assignment_pack) == 2:
                 assignment_str, noise_model_list = assignment_pack
+                if isinstance(noise_model_list, RV):
+                    noise_model_list = [noise_model_list]
                 parents = extract_parents(assignment_str, noise_model_list)
 
                 assignment_func = lambdify_assignment(
@@ -586,6 +589,8 @@ class SCM:
             # a sequence of size 3 is expected to be (parents list, assignment string, noise model)
             elif len(assignment_pack) == 3:
                 parents, assignment_func, noise_model_list = assignment_pack
+                if isinstance(noise_model_list, RV):
+                    noise_model_list = [noise_model_list]
                 assert callable(
                     assignment_func
                 ), "Assignment tuple holds 3 elements, but the function entry is not callable."
@@ -905,17 +910,18 @@ def lambdify_assignment(
     # the assignment string is sympified into an evaluable function only.
     # We therefore need all RandomSymbols as simple Symbols
     symbols = []
+    lcls = locals()
     for noise_model in noise_model_list:
         symbols.append(noise_model)
         # Allocate the noise model variable as normal symbol. This is necessary for lambdifying.
-        exec(f"{str(noise_model)} = sympy.Symbol('{noise_model}')")
+        lcls[str(noise_model)] = noise_model
     for par in parents:
-        exec(f"{par} = sympy.Symbol('{par}')")
-        symbols.append(eval(par))
+        lcls[par] = sympy.Symbol(par)
+        symbols.append(lcls[par])
     assignment = sympy.sympify(eval(assignment_str))
     try:
         assignment = sympy.lambdify(symbols, assignment, "numpy")
-    except NameError as e:
+    except (NameError, ValueError) as e:
         warnings.warn(
             f"The assignment string could not be resolved in numpy, the error message reads: {e}\n"
             f"Lambdifying without numpy.",

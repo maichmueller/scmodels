@@ -76,7 +76,7 @@ def test_parsing():
     test_str = "X = N + sqrt(X_45 ** M + 342 * 2) / (  43 * FG_2) + P, N ~ Normal(0,1)"
     func_map = parse_assignments([test_str])
     assert func_map["X"][0] == "N + sqrt(X_45 ** M + 342 * 2) / (  43 * FG_2) + P"
-    assert str(func_map["X"][1]) == "N"
+    assert str(func_map["X"][1][0]) == "N"
     assert same_elements(
         extract_parents(func_map["X"][0], "N"), ["X_45", "M", "FG_2", "P"]
     )
