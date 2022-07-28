@@ -70,11 +70,16 @@ class Assignment:
         return self.descriptor
 
     @staticmethod
-    def noise_argname(name: Union[str, RV]):
-        if isinstance(name, RV):
-            return f"__noise-{str(name)}__"
-        else:
-            return f"__noise{'-' if name else ''}{name}__"
+    def noise_argname(
+        name: Union[str, RV], node_name: Optional[Union[str, sympy.Symbol]] = None
+    ):
+        return (
+            f"__"
+            f"noise"
+            f"{'/' if node_name is not None and bool(str(node_name)) else ''}{node_name}"
+            f"{'/' if str(name) else ''}{name}"
+            f"__"
+        )
 
 
 class SCM:
@@ -275,7 +280,9 @@ class SCM:
             noise_gens = node_attr[self.noise_key]
             if noise_gens is not None:
                 for noise_gen in noise_gens:
-                    named_args[Assignment.noise_argname(str(noise_gen))] = np.asarray(
+                    named_args[
+                        Assignment.noise_argname(str(noise_gen), node_name=node)
+                    ] = np.asarray(
                         list(sample(noise_gen, numsamples=n, seed=seed)), dtype=float
                     )
 
@@ -319,7 +326,7 @@ class SCM:
                 for noise_gen in noise_gens:
                     noise_iters.append(
                         (
-                            Assignment.noise_argname(noise_gen),
+                            Assignment.noise_argname(noise_gen, node_name=node),
                             sample_iter(
                                 noise_gen,
                                 numsamples=SingletonRegistry.Infinity,
@@ -617,10 +624,18 @@ class SCM:
             else:
                 self.roots.append(node_name)
 
-            for noise_model in noise_model_list:
-                parents = [Assignment.noise_argname(noise_model)] + list(parents)
-
-            assignment = Assignment(assignment_func, parents, desc=assignment_str)
+            # note that we have to ALWAYS ensure that the assignment func and the list of extended parents
+            # (i.e. noise models + actual parent variables) is in exactly the same order as given to the
+            # lambidfying call! Otherwise, the Assignment class will assign the wrong positional order to the
+            # variables and call the functor incorrectly (since the order differs from when the sympy assignment
+            # was lambdified)
+            noise_and_parents = [
+                Assignment.noise_argname(noise_model, node_name=node_name)
+                for noise_model in noise_model_list
+            ] + list(parents)
+            assignment = Assignment(
+                assignment_func, noise_and_parents, desc=assignment_str
+            )
             attr_dict = {
                 self.assignment_key: assignment,
                 self.rv_key: rv,
@@ -938,7 +953,7 @@ def sympify_assignment(
     noise_model_list: Optional[List[RV]],
 ):
     """
-    Parse the provided assignment string with sympy and then sympify it, to be used as a random variable.
+    Parse the provided assignment string with sympy and then sympify it, to use it as a random variable.
 
     Parameters
     ----------

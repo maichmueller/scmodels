@@ -93,7 +93,7 @@ def extract_parents(assignment_str: str, noise_var: List[Union[str, sympy.Symbol
             continue
         else:
             # the matched str is considered a full variable name
-            if not matched_str in noise_var:
+            if matched_str not in noise_var:
                 parents.append(matched_str)
     # the idea of the return value is to remove duplicates while preserving the insertion order.
     # 'set' would do the same as dict.fromkeys, however, 'set' discards the order,

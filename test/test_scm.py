@@ -184,9 +184,7 @@ def test_scm_intervention():
     cn = build_scm_linandpoly(seed=seed)
 
     # do the intervention
-    cn.intervention(
-        {"X_3": (None, "N + 2.3 * X_0 + 2.3 * Y", Normal("N", 5, 2))}
-    )
+    cn.intervention({"X_3": (None, "N + 2.3 * X_0 + 2.3 * Y", Normal("N", 5, 2))})
     n = 10000
 
     scm_sample_interv = cn.sample(n)
@@ -195,7 +193,7 @@ def test_scm_intervention():
         n, dtype=np.float, names=cn.get_variables(), seed=cn.rng_state
     )
     sample["X_3"] = rng.normal(loc=5, scale=2, size=n) + 2.3 * (
-            sample["X_0"] + sample["Y"]
+        sample["X_0"] + sample["Y"]
     )
     sample = sample[cn.get_variables()]
 
@@ -243,7 +241,7 @@ def test_scm_softintervention():
     n = 100
     standard_sample = cn.sample(n, seed=seed)
     # do the intervention
-    cn.soft_intervention([("X_2", FiniteRV(str(cn["X_2"].noise), density={0: 1.}))])
+    cn.soft_intervention([("X_2", FiniteRV(str(cn["X_2"].noise), density={0: 1.0}))])
     sample = cn.sample(n)
     assignment = cn["X_2"].assignment
     manual_x2 = assignment(0, sample["X_0"], sample["X_1"])
@@ -298,12 +296,44 @@ def test_none_noise():
 
 
 def test_compositional_noise():
-    cn = SCM(["X = 1", "Y = N**2 + X, N ~ Normal(0,1)", "Z = T*M + Y, M ~ Exponential(1) / T ~ StudentT(0.5)"], seed=0)
+    cn = SCM(
+        [
+            "X = 1",
+            "Y = N**2 + X, N ~ Normal(0,1)",
+            "Z = T*M + Y, M ~ Exponential(1) / T ~ StudentT(0.5)",
+        ],
+        seed=0,
+    )
     n = 100
     samples = cn.sample(n)
     rng = np.random.default_rng(0)
-    manual_y = (rng.normal(size=n))**2 + 1
-    manual_z = rng.exponential(scale=1, size=n) * rng.standard_t(df=0.5, size=n) + manual_y
+    manual_y = (rng.normal(size=n)) ** 2 + 1
+    manual_z = (
+        rng.exponential(scale=1, size=n) * rng.standard_t(df=0.5, size=n) + manual_y
+    )
+    assert (samples["X"] == 1).all()
+    assert np.isclose(np.mean(samples["Y"]), np.mean(manual_y))
+    assert np.isclose(np.mean(samples["Z"]), np.mean(manual_z))
+
+
+def test_compositional_noise_multi():
+    cn = SCM(
+        [
+            "X = 1",
+            "Y = N**P + X, N ~ Normal(0,1) / P ~ Bernoulli(0.5)",
+            "Z = exp(T) - log(M) * N + Y, M ~ Exponential(1) / T ~ StudentT(0.5) / N ~ Normal(0, 2)",
+        ],
+        seed=0,
+    )
+    n = 100
+    samples = cn.sample(n)
+    rng = np.random.default_rng(0)
+    manual_y = rng.normal(size=n) ** rng.binomial(1, 0.5, size=n) + 1
+    manual_z = (
+        np.exp(rng.standard_t(df=0.5, size=n))
+        - np.log(rng.exponential(scale=1, size=n)) * rng.normal(0, 2, size=n)
+        + manual_y
+    )
     assert (samples["X"] == 1).all()
     assert np.isclose(np.mean(samples["Y"]), np.mean(manual_y))
     assert np.isclose(np.mean(samples["Z"]), np.mean(manual_z))
