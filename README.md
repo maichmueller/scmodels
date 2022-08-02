@@ -61,7 +61,9 @@ from scmodels import SCM
 assignment_seq = [
     "Z = M, M ~ LogLogistic(alpha=1, beta=1)",
     "X = N * 3 * Z ** 2, N ~ LogNormal(mean=1, std=1)",
-    "Y = P + 2 * Z + sqrt(X), P ~ Normal(mean=2, std=1)"
+    "Y = P + 2 * Z + sqrt(X), P ~ Normal(mean=2, std=1)",
+    "V = N**P + X, N ~ Normal(0,1) / P ~ Bernoulli(0.5)",
+    "W = exp(T) - log(M) * N + Y, M ~ Exponential(1) / T ~ StudentT(0.5) / N ~ Normal(0, 2)",
 ]
 
 myscm = SCM(assignment_seq)
@@ -71,6 +73,8 @@ Agreements:
 - The name of the noise variable in the distribution specification
 (e.g. `P ~ Normal(mean=2, std=1)`) has to align with the noise variable
 name (`P`) of the assignment string.
+- Multiple noise models can be composited as done for variable `W` in the above example.
+The noise model string segment must specify all individual noise models separated by a '/'
 
 ## 2. Assignment Map
 
@@ -88,22 +92,25 @@ with a 2-tuple as value of the form:
 
 
 ```python
-from sympy.stats import LogLogistic, LogNormal, Normal
-
+from sympy.stats import LogLogistic, LogNormal, Normal, Bernoulli
 
 assignment_map = {
-   "Z": (
-       "M",
-       LogLogistic("M", alpha=1, beta=1)
-   ),
-   "X": (
-       "N * 3 * Z ** 2",
-       LogNormal("N", mean=1, std=1),
-   ),
-   "Y": (
-       "P + 2 * Z + sqrt(X)",
-       Normal("P", mean=2, std=1),
-   ),
+    "Z": (
+        "M",
+        LogLogistic("M", alpha=1, beta=1)
+    ),
+    "X": (
+        "N * 3 * Z ** 2",
+        LogNormal("N", mean=1, std=1),
+    ),
+    "Y": (
+        "P + 2 * Z + sqrt(X)",
+        Normal("P", mean=2, std=1),
+    ),
+    "V": (
+        "N**P + X",
+        [Normal("N", 0, 1), Bernoulli("P", 0.5)]
+    )
 }
 
 myscm2 = SCM(assignment_map)
@@ -113,6 +120,7 @@ Agreements:
 - the name of the noise distribution provided in its constructor
 (e.g. `Normal("N", mean=2, std=1)`) has to align with the noise variable
 name (`N`) of the assignment string.
+- Multiple noise models in the assignment must be wrapped in an iterable (e.g. a list `[]`, or tuple `()`)
 
 ### 3-Tuple: Assignments with arbitrary callables
 
@@ -133,21 +141,21 @@ def Y_assignment(p, z, x):
 
 
 functional_map = {
-   "Z": (
-       [],
-       lambda m: m,
-       LogLogistic("M", alpha=1, beta=1)
-   ),
-   "X": (
-       ["Z"],
-       lambda n, z: n * 3 * z ** 2,
-       LogNormal("N", mean=1, std=1),
-   ),
-   "Y": (
-       ["Z", "X"],
-       Y_assignment,
-       Normal("P", mean=2, std=1),
-   ),
+    "Z": (
+        [],
+        lambda m: m,
+        LogLogistic("M", alpha=1, beta=1)
+    ),
+    "X": (
+        ["Z"],
+        lambda n, z: n * 3 * z ** 2,
+        LogNormal("N", mean=1, std=1),
+    ),
+    "Y": (
+        ["Z", "X"],
+        Y_assignment,
+        Normal("P", mean=2, std=1),
+    ),
 }
 
 myscm3 = SCM(functional_map)
@@ -170,28 +178,12 @@ which includes mentioning active interventions and the assignments.
 print(myscm)
 ```
 
-    Structural Causal Model of 3 variables: Z, X, Y
-    Variables with active interventions: []
-    Assignments:
-    Z := f(M) = M	 [ M ~ LogLogistic(alpha=1, beta=1) ]
-    X := f(N, Z) = N * 3 * Z ** 2	 [ N ~ LogNormal(mean=1, std=1) ]
-    Y := f(P, Z, X) = P + 2 * Z + sqrt(X)	 [ P ~ Normal(mean=2, std=1) ]
-
-
 In the case of custom callable assignments, the output is less informative
 
 
 ```python
 print(myscm3)
 ```
-
-    Structural Causal Model of 3 variables: Z, X, Y
-    Variables with active interventions: []
-    Assignments:
-    Z := f(M) = __unknown__	 [ M ~ LogLogistic(alpha=1, beta=1) ]
-    X := f(N, Z) = __unknown__	 [ N ~ LogNormal(mean=1, std=1) ]
-    Y := f(P, Z, X) = __unknown__	 [ P ~ Normal(mean=2, std=1) ]
-
 
 ## Interventions
 One can easily perform interventions on the variables,
@@ -240,7 +232,30 @@ n = 5
 myscm.sample(n)
 ```
 
+    /home/michael/anaconda3/envs/scm/lib/python3.8/site-packages/sympy/stats/rv.py:1104: UserWarning: 
+    The return type of sample has been changed to return an iterator
+    object since version 1.7. For more information see
+    https://github.com/sympy/sympy/issues/19061
+      warnings.warn(filldedent(message))
+
+
+
+
+
 <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -307,7 +322,30 @@ for i in range(n):
 pd.DataFrame.from_dict(container)
 ```
 
+    /home/michael/anaconda3/envs/scm/lib/python3.8/site-packages/sympy/stats/rv.py:1104: UserWarning: 
+    The return type of sample has been changed to return an iterator
+    object since version 1.7. For more information see
+    https://github.com/sympy/sympy/issues/19061
+      warnings.warn(filldedent(message))
+
+
+
+
+
 <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -362,7 +400,30 @@ sample = next(myscm.sample_iter())
 pd.DataFrame.from_dict(sample)
 ```
 
+    /home/michael/anaconda3/envs/scm/lib/python3.8/site-packages/sympy/stats/rv.py:1104: UserWarning: 
+    The return type of sample has been changed to return an iterator
+    object since version 1.7. For more information see
+    https://github.com/sympy/sympy/issues/19061
+      warnings.warn(filldedent(message))
+
+
+
+
+
 <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
