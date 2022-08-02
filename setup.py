@@ -45,6 +45,7 @@ setup(
     ],
     description="Structural Causal Models",
     install_requires=requirements,
+    python_requires='>=3.7',
     license="MIT license",
     long_description=readme + "\n\n" + history,
     long_description_content_type='text/markdown',
