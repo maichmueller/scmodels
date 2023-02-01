@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import pandas as pd
+import pytest
 from numpy.polynomial.polynomial import Polynomial
 from test.build_scm import *
 from scmodels.parser import parse_assignments, extract_parents
@@ -133,6 +134,33 @@ def test_scm_builds_equal_sampling():
     for i in range(2):
         for var in cn1.get_variables():
             assert same_elements(samples[i][var].round(4), samples[i + 1][var].round(4))
+
+
+@pytest.fixture(scope="function")
+def readme_samples(request):
+    scm = request.param
+
+    n = 5
+    container = {var: [] for var in scm}
+    sampler = scm.sample_iter(container)
+    for i in range(n):
+        next(sampler)
+
+    return pd.DataFrame.from_dict(container)
+
+
+@pytest.mark.parametrize(
+    "readme_samples",
+    [
+        build_first_readme_example(),
+        build_second_readme_example(),
+        build_third_readme_example(),
+    ],
+    indirect=["readme_samples"],
+)
+def test_readme_examples(readme_samples):
+    assert readme_samples.shape[0] == 5
+    assert np.isnan(readme_samples.to_numpy()).sum() == 0
 
 
 def test_scm_sample_partial():

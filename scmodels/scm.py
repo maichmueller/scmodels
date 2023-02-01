@@ -12,6 +12,7 @@ from typing import (
     Set,
     Optional,
     Hashable,
+    Optional,
     Sequence,
     Iterator,
     Callable,
@@ -37,7 +38,10 @@ AssignmentMap = Dict[str, Union[Tuple[str, RV], Tuple[List[str], Callable, RV]]]
 
 class Assignment:
     def __init__(
-        self, functor: Callable, parents: Sequence[str], desc: Optional[str] = None,
+        self,
+        functor: Callable,
+        parents: Sequence[str],
+        desc: Optional[str] = None,
     ):
         assert callable(functor), "Passed functor must be callable."
         self._descriptor = desc
@@ -318,42 +322,46 @@ class SCM:
         """
         if seed is None:
             seed = self.rng_state
+        else:
+            seed = np.random.default_rng(seed)
         vars_ordered = list(self._causal_iterator(variables))
-        noise_iters = []
+        noise_iters: Dict[str, List[tuple[Optional[str], Iterable]]] = dict()
         for node in vars_ordered:
             noise_gens = self.dag.nodes[node][self.noise_key]
             if noise_gens:
+                noise_iters[node] = []
                 for noise_gen in noise_gens:
-                    noise_iters.append(
+                    noise_iter = sample_iter(
+                        noise_gen,
+                        numsamples=SingletonRegistry.Infinity,
+                        seed=seed,
+                    )
+
+                    noise_iters[node].append(
                         (
                             Assignment.noise_argname(noise_gen, node_name=node),
-                            sample_iter(
-                                noise_gen,
-                                numsamples=SingletonRegistry.Infinity,
-                                seed=np.random.default_rng(seed),
-                            ),
+                            noise_iter,
                         )
                     )
             else:
-                noise_iters.append((None, repeat(None)))
+                noise_iters[node] = [(None, repeat(None))]
 
         if container is None:
             samples = {var: [] for var in vars_ordered}
         else:
             samples = container
         while True:
-            for i, node in enumerate(vars_ordered):
+            for node in vars_ordered:
                 node_attr = self.dag.nodes[node]
-                predecessors = list(self.dag.predecessors(node))
 
                 named_args = dict()
-                for pred in predecessors:
+                for pred in self.dag.predecessors(node):
                     named_args[pred] = samples[pred][-1]
 
-                noise_name, noise_iter = noise_iters[i]
-                noise = next(noise_iter)
-                if noise is not None:
-                    named_args[noise_name] = noise
+                for noise_name, noise_gen in noise_iters[node]:
+                    noise = next(noise_gen)
+                    if noise is not None:
+                        named_args[noise_name] = noise
 
                 data = node_attr[self.assignment_key](**named_args)
                 samples[node].append(data)
@@ -421,7 +429,8 @@ class SCM:
                 # Rebuild the parents for the assignment, because no new parent info is given,
                 # but a callable assignment needs a parents list
                 sorted_parents = sorted(
-                    self.get_variable_args(var).items(), key=lambda k: k[1],
+                    self.get_variable_args(var).items(),
+                    key=lambda k: k[1],
                 )
                 items[0] = [
                     parent
@@ -442,7 +451,7 @@ class SCM:
 
             if var not in self.interventions_backup_attr:
                 # the variable has NOT already been backed up. If we overwrite it now it is fine. If it had already been
-                # in the backup, then it we would need to pass on this step, in order to not overwrite the backup
+                # in the backup, then we would need to pass on this step, in order to not overwrite the backup
                 # (possibly with a previous intervention)
                 self.interventions_backup_attr[var] = deepcopy(self.dag.nodes[var])
 
@@ -473,7 +482,8 @@ class SCM:
         self.intervention(interventions_dict)
 
     def soft_intervention(
-        self, var_noise_pairs: Sequence[Tuple[str, RV]],
+        self,
+        var_noise_pairs: Sequence[Tuple[str, RV]],
     ):
         """
         Perform noise interventions, i.e. modifying the noise variable of specific variables.
@@ -644,7 +654,8 @@ class SCM:
             }
 
             self.dag.add_node(
-                node_name, **attr_dict,
+                node_name,
+                **attr_dict,
             )
 
     def seed(
