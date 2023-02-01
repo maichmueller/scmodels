@@ -190,7 +190,7 @@ def test_scm_intervention():
     scm_sample_interv = cn.sample(n)
     rng = np.random.default_rng(seed)
     sample = manual_sample_linandpoly(
-        n, dtype=np.float, names=cn.get_variables(), seed=cn.rng_state
+        n, dtype=float, names=cn.get_variables(), seed=cn.rng_state
     )
     sample["X_3"] = rng.normal(loc=5, scale=2, size=n) + 2.3 * (
         sample["X_0"] + sample["Y"]

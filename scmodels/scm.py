@@ -283,7 +283,7 @@ class SCM:
                     named_args[
                         Assignment.noise_argname(str(noise_gen), node_name=node)
                     ] = np.asarray(
-                        list(sample(noise_gen, numsamples=n, seed=seed)), dtype=float
+                        list(sample(noise_gen, size=(n,), seed=seed)), dtype=float
                     )
 
             data = node_attr[self.assignment_key](**named_args)
