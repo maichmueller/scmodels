@@ -25,7 +25,7 @@ jobs:
       run: |
         pip install jupyter nbconvert
 
-        python -m ./docs/notebook_conversion
+        python ./docs/notebook_conversion
 #        jupyter nbconvert --ClearMetadataPreprocessor.enabled=True --ClearOutput.enabled=True  --to markdown docs/README.ipynb --output-dir=.
 
     - name: Commit files
