@@ -8,3 +8,5 @@ SCM.egg-info/
 scmodels.egg-info/
 
 dist/
+
+docs/.ipynb_checkpoints/
