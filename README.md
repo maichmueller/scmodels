@@ -13,7 +13,7 @@ It supports the features:
   - Intervening
   - Plotting
   - Printing
-gsdfgsdgdsgdfgsdgfsgfgsdg
+
  and by extension all methods on a DAG provided by networkx after accessing the member variable dag
 
 # Installation
@@ -281,43 +281,43 @@ myscm.sample(n)
   <tbody>
     <tr>
       <th>0</th>
-      <td>0.408698</td>
-      <td>0.722423</td>
-      <td>2.327906</td>
-      <td>1.722423</td>
-      <td>1.392379e+02</td>
+      <td>2.791788</td>
+      <td>74.451905</td>
+      <td>15.074044</td>
+      <td>74.099476</td>
+      <td>15.063626</td>
     </tr>
     <tr>
       <th>1</th>
-      <td>1.691872</td>
-      <td>39.330818</td>
-      <td>12.436405</td>
-      <td>40.330818</td>
-      <td>7.933656e+00</td>
+      <td>0.042431</td>
+      <td>0.002761</td>
+      <td>2.326407</td>
+      <td>1.002761</td>
+      <td>2.508321</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>0.459000</td>
-      <td>1.206252</td>
-      <td>5.513253</td>
-      <td>2.206252</td>
-      <td>3.382585e+05</td>
+      <td>0.891725</td>
+      <td>6.511983</td>
+      <td>6.104481</td>
+      <td>7.511983</td>
+      <td>134.258835</td>
     </tr>
     <tr>
       <th>3</th>
-      <td>1.096467</td>
-      <td>5.331933</td>
-      <td>6.434765</td>
-      <td>6.331933</td>
-      <td>7.700713e+00</td>
+      <td>0.583911</td>
+      <td>0.697044</td>
+      <td>4.486161</td>
+      <td>1.697044</td>
+      <td>159272.167495</td>
     </tr>
     <tr>
       <th>4</th>
-      <td>45.440010</td>
-      <td>34281.345042</td>
-      <td>276.237608</td>
-      <td>34282.345042</td>
-      <td>6.652443e+09</td>
+      <td>1.051071</td>
+      <td>4.646160</td>
+      <td>6.220968</td>
+      <td>5.646160</td>
+      <td>5.155477</td>
     </tr>
   </tbody>
 </table>
@@ -376,43 +376,43 @@ pd.DataFrame.from_dict(container)
   <tbody>
     <tr>
       <th>0</th>
-      <td>0.106647</td>
-      <td>0.074149</td>
-      <td>1.256696</td>
-      <td>1.074149</td>
-      <td>4.881213</td>
+      <td>2.021426</td>
+      <td>33.583862</td>
+      <td>9.460015</td>
+      <td>35.169807</td>
+      <td>9.324805</td>
     </tr>
     <tr>
       <th>1</th>
-      <td>2.625555</td>
-      <td>34.571415</td>
-      <td>11.833233</td>
-      <td>32.518572</td>
-      <td>19.960635</td>
+      <td>2.440154</td>
+      <td>87.059479</td>
+      <td>16.580889</td>
+      <td>88.059479</td>
+      <td>279.141977</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>0.335691</td>
-      <td>0.185550</td>
-      <td>4.047000</td>
-      <td>1.185550</td>
-      <td>5.228757</td>
+      <td>19.130389</td>
+      <td>3954.022050</td>
+      <td>103.476369</td>
+      <td>3954.326598</td>
+      <td>104.949913</td>
     </tr>
     <tr>
       <th>3</th>
-      <td>0.038942</td>
-      <td>0.017961</td>
-      <td>1.826338</td>
-      <td>-0.669130</td>
-      <td>1.057857</td>
+      <td>10.866892</td>
+      <td>467.293767</td>
+      <td>44.194445</td>
+      <td>468.293767</td>
+      <td>60.006437</td>
     </tr>
     <tr>
       <th>4</th>
-      <td>10.240584</td>
-      <td>472.751488</td>
-      <td>44.089053</td>
-      <td>473.751488</td>
-      <td>83.616113</td>
+      <td>0.754167</td>
+      <td>3.780088</td>
+      <td>4.547162</td>
+      <td>3.350713</td>
+      <td>4.745479</td>
     </tr>
   </tbody>
 </table>
@@ -459,11 +459,11 @@ pd.DataFrame.from_dict(sample)
   <tbody>
     <tr>
       <th>0</th>
-      <td>1.15626</td>
-      <td>4.623544</td>
-      <td>7.178447</td>
-      <td>6.043446</td>
-      <td>7.225647</td>
+      <td>3.936109</td>
+      <td>63.984925</td>
+      <td>17.065005</td>
+      <td>62.627085</td>
+      <td>1426.496652</td>
     </tr>
   </tbody>
 </table>
