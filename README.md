@@ -178,12 +178,30 @@ which includes mentioning active interventions and the assignments.
 print(myscm)
 ```
 
+    Structural Causal Model of 5 variables: Z, X, Y, V, W
+    Variables with active interventions: []
+    Assignments:
+    Z := f(M) = M	 [ M ~ LogLogistic(alpha=1, beta=1) ]
+    X := f(N, Z) = N * 3 * Z ** 2	 [ N ~ LogNormal(mean=1, std=1) ]
+    Y := f(P, Z, X) = P + 2 * Z + sqrt(X)	 [ P ~ Normal(mean=2, std=1) ]
+    V := f(N, P, X) = N**P + X	 [ N ~ Normal(mean=0, std=1), P ~ Bernoulli(p=0.5, succ=1, fail=0) ]
+    W := f(M, T, N, Y) = exp(T) - log(M) * N + Y	 [ M ~ Exponential(rate=1), T ~ StudentT(nu=0.5), N ~ Normal(mean=0, std=2) ]
+
+
 In the case of custom callable assignments, the output is less informative
 
 
 ```python
 print(myscm3)
 ```
+
+    Structural Causal Model of 3 variables: Z, X, Y
+    Variables with active interventions: []
+    Assignments:
+    Z := f(M) = __unknown__	 [ M ~ LogLogistic(alpha=1, beta=1) ]
+    X := f(N, Z) = __unknown__	 [ N ~ LogNormal(mean=1, std=1) ]
+    Y := f(P, Z, X) = __unknown__	 [ P ~ Normal(mean=2, std=1) ]
+
 
 ## Interventions
 One can easily perform interventions on the variables,
@@ -232,13 +250,6 @@ n = 5
 myscm.sample(n)
 ```
 
-    /home/michael/anaconda3/envs/scm/lib/python3.8/site-packages/sympy/stats/rv.py:1104: UserWarning: 
-    The return type of sample has been changed to return an iterator
-    object since version 1.7. For more information see
-    https://github.com/sympy/sympy/issues/19061
-      warnings.warn(filldedent(message))
-
-
 
 
 
@@ -263,38 +274,50 @@ myscm.sample(n)
       <th>Z</th>
       <th>X</th>
       <th>Y</th>
+      <th>V</th>
+      <th>W</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <th>0</th>
-      <td>3.130168</td>
-      <td>25.518928</td>
-      <td>13.524461</td>
+      <td>0.900643</td>
+      <td>12.760608</td>
+      <td>8.190754</td>
+      <td>13.553723</td>
+      <td>1.058357e+01</td>
     </tr>
     <tr>
       <th>1</th>
-      <td>0.730453</td>
-      <td>6.036398</td>
-      <td>7.148895</td>
+      <td>0.723628</td>
+      <td>9.962543</td>
+      <td>6.295713</td>
+      <td>10.962543</td>
+      <td>6.828096e+00</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>0.179568</td>
-      <td>0.156701</td>
-      <td>3.149104</td>
+      <td>0.180395</td>
+      <td>0.769795</td>
+      <td>0.831196</td>
+      <td>0.083380</td>
+      <td>5.700744e+00</td>
     </tr>
     <tr>
       <th>3</th>
-      <td>0.879909</td>
-      <td>6.787311</td>
-      <td>6.056273</td>
+      <td>233.592728</td>
+      <td>482479.024855</td>
+      <td>1163.218743</td>
+      <td>482480.024855</td>
+      <td>8.104880e+19</td>
     </tr>
     <tr>
       <th>4</th>
-      <td>1.710136</td>
-      <td>20.079351</td>
-      <td>8.894617</td>
+      <td>0.038317</td>
+      <td>0.006204</td>
+      <td>1.664008</td>
+      <td>-0.232331</td>
+      <td>1.943233e+00</td>
     </tr>
   </tbody>
 </table>
@@ -322,13 +345,6 @@ for i in range(n):
 pd.DataFrame.from_dict(container)
 ```
 
-    /home/michael/anaconda3/envs/scm/lib/python3.8/site-packages/sympy/stats/rv.py:1104: UserWarning: 
-    The return type of sample has been changed to return an iterator
-    object since version 1.7. For more information see
-    https://github.com/sympy/sympy/issues/19061
-      warnings.warn(filldedent(message))
-
-
 
 
 
@@ -353,38 +369,50 @@ pd.DataFrame.from_dict(container)
       <th>Z</th>
       <th>X</th>
       <th>Y</th>
+      <th>V</th>
+      <th>W</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <th>0</th>
-      <td>0.341271</td>
-      <td>1.271099</td>
-      <td>4.547078</td>
+      <td>3.668788</td>
+      <td>21.429236</td>
+      <td>12.893422</td>
+      <td>20.472420</td>
+      <td>14.854003</td>
     </tr>
     <tr>
       <th>1</th>
-      <td>2.722751</td>
-      <td>235.765034</td>
-      <td>22.591202</td>
+      <td>0.381301</td>
+      <td>1.767517</td>
+      <td>4.026766</td>
+      <td>1.323163</td>
+      <td>4.761464</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>0.081638</td>
-      <td>0.107539</td>
-      <td>3.898544</td>
+      <td>0.752518</td>
+      <td>1.978730</td>
+      <td>4.236006</td>
+      <td>1.040132</td>
+      <td>184900.784899</td>
     </tr>
     <tr>
       <th>3</th>
-      <td>2.745713</td>
-      <td>210.743838</td>
-      <td>21.806575</td>
+      <td>0.683187</td>
+      <td>7.117470</td>
+      <td>4.979872</td>
+      <td>6.272225</td>
+      <td>5.753564</td>
     </tr>
     <tr>
       <th>4</th>
-      <td>1.528015</td>
-      <td>9.768679</td>
-      <td>9.058807</td>
+      <td>2.082898</td>
+      <td>174.933821</td>
+      <td>19.329061</td>
+      <td>175.933821</td>
+      <td>16.519665</td>
     </tr>
   </tbody>
 </table>
@@ -400,13 +428,6 @@ sample = next(myscm.sample_iter())
 pd.DataFrame.from_dict(sample)
 ```
 
-    /home/michael/anaconda3/envs/scm/lib/python3.8/site-packages/sympy/stats/rv.py:1104: UserWarning: 
-    The return type of sample has been changed to return an iterator
-    object since version 1.7. For more information see
-    https://github.com/sympy/sympy/issues/19061
-      warnings.warn(filldedent(message))
-
-
 
 
 
@@ -431,14 +452,18 @@ pd.DataFrame.from_dict(sample)
       <th>Z</th>
       <th>X</th>
       <th>Y</th>
+      <th>V</th>
+      <th>W</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <th>0</th>
-      <td>0.399457</td>
-      <td>3.369994</td>
-      <td>6.946475</td>
+      <td>0.534046</td>
+      <td>2.683054</td>
+      <td>5.23408</td>
+      <td>2.738984</td>
+      <td>9.210193</td>
     </tr>
   </tbody>
 </table>
