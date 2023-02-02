@@ -281,43 +281,43 @@ myscm.sample(n)
   <tbody>
     <tr>
       <th>0</th>
-      <td>2.791788</td>
-      <td>74.451905</td>
-      <td>15.074044</td>
-      <td>74.099476</td>
-      <td>15.063626</td>
+      <td>102.007796</td>
+      <td>105376.718044</td>
+      <td>530.637631</td>
+      <td>105379.468192</td>
+      <td>3861.832951</td>
     </tr>
     <tr>
       <th>1</th>
-      <td>0.042431</td>
-      <td>0.002761</td>
-      <td>2.326407</td>
-      <td>1.002761</td>
-      <td>2.508321</td>
+      <td>1.272022</td>
+      <td>4.442570</td>
+      <td>7.024103</td>
+      <td>6.058344</td>
+      <td>35.297486</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>0.891725</td>
-      <td>6.511983</td>
-      <td>6.104481</td>
-      <td>7.511983</td>
-      <td>134.258835</td>
+      <td>0.859237</td>
+      <td>2.957887</td>
+      <td>5.404866</td>
+      <td>3.378307</td>
+      <td>4.174558</td>
     </tr>
     <tr>
       <th>3</th>
-      <td>0.583911</td>
-      <td>0.697044</td>
-      <td>4.486161</td>
-      <td>1.697044</td>
-      <td>159272.167495</td>
+      <td>2.622033</td>
+      <td>205.491693</td>
+      <td>21.653403</td>
+      <td>205.289238</td>
+      <td>24.224117</td>
     </tr>
     <tr>
       <th>4</th>
-      <td>1.051071</td>
-      <td>4.646160</td>
-      <td>6.220968</td>
-      <td>5.646160</td>
-      <td>5.155477</td>
+      <td>5.132802</td>
+      <td>483.161835</td>
+      <td>35.486085</td>
+      <td>482.045874</td>
+      <td>37.629855</td>
     </tr>
   </tbody>
 </table>
@@ -342,79 +342,13 @@ import pandas as pd
 for i in range(n):
     next(sampler)
 
-pd.DataFrame.from_dict(container)
+pd.DataFrame.from_dict(container).to_markdown(tablefmt="github")
 ```
 
 
 
 
-<div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>Z</th>
-      <th>X</th>
-      <th>Y</th>
-      <th>V</th>
-      <th>W</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>0</th>
-      <td>2.021426</td>
-      <td>33.583862</td>
-      <td>9.460015</td>
-      <td>35.169807</td>
-      <td>9.324805</td>
-    </tr>
-    <tr>
-      <th>1</th>
-      <td>2.440154</td>
-      <td>87.059479</td>
-      <td>16.580889</td>
-      <td>88.059479</td>
-      <td>279.141977</td>
-    </tr>
-    <tr>
-      <th>2</th>
-      <td>19.130389</td>
-      <td>3954.022050</td>
-      <td>103.476369</td>
-      <td>3954.326598</td>
-      <td>104.949913</td>
-    </tr>
-    <tr>
-      <th>3</th>
-      <td>10.866892</td>
-      <td>467.293767</td>
-      <td>44.194445</td>
-      <td>468.293767</td>
-      <td>60.006437</td>
-    </tr>
-    <tr>
-      <th>4</th>
-      <td>0.754167</td>
-      <td>3.780088</td>
-      <td>4.547162</td>
-      <td>3.350713</td>
-      <td>4.745479</td>
-    </tr>
-  </tbody>
-</table>
-</div>
+    '|    |         Z |         X |         Y |          V |        W |\n|----|-----------|-----------|-----------|------------|----------|\n|  0 | 0.320624  |  0.739278 |  3.15208  |  0.798498  |  2.37713 |\n|  1 | 0.575062  | 13.8166   |  6.99622  | 14.8166    | 13.8716  |\n|  2 | 1.47633   |  3.91805  |  8.54292  |  4.91805   |  8.90137 |\n|  3 | 2.521     | 69.6467   | 15.491    | 69.8952    | 13.4541  |\n|  4 | 0.0305321 |  0.011314 |  0.890735 | -0.0882857 |  1.53879 |'
 
 
 
@@ -423,47 +357,13 @@ If the target container is not provided, the generator returns a new `dict` for 
 
 ```python
 sample = next(myscm.sample_iter())
-pd.DataFrame.from_dict(sample)
+pd.DataFrame.from_dict(sample).to_markdown(tablefmt="github")
 ```
 
 
 
 
-<div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>Z</th>
-      <th>X</th>
-      <th>Y</th>
-      <th>V</th>
-      <th>W</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>0</th>
-      <td>3.936109</td>
-      <td>63.984925</td>
-      <td>17.065005</td>
-      <td>62.627085</td>
-      <td>1426.496652</td>
-    </tr>
-  </tbody>
-</table>
-</div>
+    '|    |       Z |       X |       Y |       V |       W |\n|----|---------|---------|---------|---------|---------|\n|  0 | 5.37395 | 65.7474 | 19.4283 | 65.1655 | 16.2018 |'
 
 
 
