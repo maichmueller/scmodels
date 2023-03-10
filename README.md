@@ -30,18 +30,15 @@ python setup.py install
 
 # Building an SCM
 
-To build the DAG
-
-![X \rightarrow Y \leftarrow Z \rightarrow X](https://latex.codecogs.com/svg.latex?&space;X{\rightarrow}{Y}{\leftarrow}{Z}{\rightarrow}X)
-
+To build the DAG $X \rightarrow Y \leftarrow Z \rightarrow X$
 
 with the assignments
 
-![Z ~ LogLogistic(alpha=1, beta=1)](https://latex.codecogs.com/svg.latex?&space;Z\sim\text{LogLogistic}(\alpha=1,\beta=1)])
+$Z \sim \text{LogLogistic} (\alpha=1,\beta=1)$
 
-![X = 3Z^2{\cdot}N](https://latex.codecogs.com/svg.latex?&space;X={3Z^2}{\cdot}N\quad[N=\text{LogNormal}(\mu=1,\sigma=1)])
+$X=3Z^2 \cdot N \quad [N = \text{LogNormal}(\mu=1,\sigma=1)]$
 
-![Y = 2Z + \sqrt{X} + N](https://latex.codecogs.com/svg.latex?&space;Y=2Z+\sqrt{X}+N\quad[N=\text{Normal}(\mu=2,\sigma=1)])
+$Y = 2Z + \sqrt{X} + N \quad [N=\text{Normal}(\mu=2,\sigma=1)]$
 
 There are 3 different ways of declaring the SCM:
 
@@ -281,43 +278,43 @@ myscm.sample(n)
   <tbody>
     <tr>
       <th>0</th>
-      <td>0.565929</td>
-      <td>3.361435</td>
-      <td>5.260655</td>
-      <td>4.361435</td>
-      <td>2.536877e+01</td>
+      <td>0.458857</td>
+      <td>1.414755</td>
+      <td>5.193947</td>
+      <td>-0.075185</td>
+      <td>7.655411</td>
     </tr>
     <tr>
       <th>1</th>
-      <td>0.477684</td>
-      <td>0.599547</td>
-      <td>2.529747</td>
-      <td>-0.045223</td>
-      <td>inf</td>
+      <td>2.174993</td>
+      <td>64.425130</td>
+      <td>14.934303</td>
+      <td>63.153459</td>
+      <td>15.331276</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>0.316701</td>
-      <td>1.243072</td>
-      <td>5.600354</td>
-      <td>1.499062</td>
-      <td>1.423805e+01</td>
+      <td>0.220275</td>
+      <td>0.345826</td>
+      <td>2.827816</td>
+      <td>1.345826</td>
+      <td>6.304737</td>
     </tr>
     <tr>
       <th>3</th>
-      <td>0.330850</td>
-      <td>5.022660</td>
-      <td>4.380305</td>
-      <td>6.022660</td>
-      <td>2.819590e+33</td>
+      <td>0.419901</td>
+      <td>1.465489</td>
+      <td>3.595293</td>
+      <td>2.465489</td>
+      <td>4.804610</td>
     </tr>
     <tr>
       <th>4</th>
-      <td>1.467077</td>
-      <td>6.202129</td>
-      <td>7.082237</td>
-      <td>4.385052</td>
-      <td>8.957598e+00</td>
+      <td>8.162554</td>
+      <td>467.544060</td>
+      <td>39.288331</td>
+      <td>468.544060</td>
+      <td>40.162648</td>
     </tr>
   </tbody>
 </table>
@@ -348,7 +345,7 @@ pd.DataFrame.from_dict(container).to_markdown(tablefmt="github")
 
 
 
-    '|    |        Z |          X |        Y |         V |        W |\n|----|----------|------------|----------|-----------|----------|\n|  0 | 5.97638  | 147.844    | 25.9986  | 146.714   | 36.9416  |\n|  1 | 1.9229   |  11.2393   |  8.90871 |  10.7473  | 18.7864  |\n|  2 | 7.11928  | 450.326    | 35.7424  | 451.326   | 40.9524  |\n|  3 | 0.193557 |   0.452047 |  3.49616 |   1.45205 |  5.03188 |\n|  4 | 5.78034  | 768.961    | 41.0471  | 769.961   | 49.9034  |'
+    '|    |         Z |           X |        Y |            V |             W |\n|----|-----------|-------------|----------|--------------|---------------|\n|  0 |  0.425077 |    0.202115 |  3.75975 |    0.592517  |  -2.79849     |\n|  1 | 13.274    | 1572.27     | 67.86    | 1573.27      |   1.54093e+37 |\n|  2 |  0.291351 |    1.12466  |  3.561   |   -0.0156441 |   8.93038     |\n|  3 |  2.03391  |   28.9135   | 12.142   |   29.1219    |   1.18132e+07 |\n|  4 |  0.243862 |    0.799388 |  2.58813 |    1.62191   | 497.977       |'
 
 
 
@@ -363,7 +360,7 @@ pd.DataFrame.from_dict(sample).to_markdown(tablefmt="github")
 
 
 
-    '|    |       Z |       X |      Y |       V |       W |\n|----|---------|---------|--------|---------|---------|\n|  0 | 6.05078 | 97.2176 | 24.228 | 96.8235 | 25.1096 |'
+    '|    |        Z |        X |       Y |       V |       W |\n|----|----------|----------|---------|---------|---------|\n|  0 | 0.289872 | 0.206238 | 2.60192 | 1.20624 | 269.102 |'
 
 
 
