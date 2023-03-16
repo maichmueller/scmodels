@@ -245,17 +245,8 @@ The SCM allows drawing as many samples as needed through the method `myscm.sampl
 ```python
 n = 5
 samples = myscm.sample(n)
-print(samples.to_markdown(tablefmt="github"))
+display_markdown(samples.to_markdown(tablefmt="github"))
 ```
-
-    |    |        Z |           X |        Y |           V |            W |
-    |----|----------|-------------|----------|-------------|--------------|
-    |  0 | 0.518209 |   2.7238    |  5.79451 |   3.7238    |  1.80674e+73 |
-    |  1 | 0.218697 |   0.244446  |  2.71417 |  -0.486366  |  2.794       |
-    |  2 | 2.92446  |  82.1186    | 15.3297  |  82.6109    | 13.495       |
-    |  3 | 2.05183  | 108.124     | 15.4665  | 108         | 20.004       |
-    |  4 | 0.084261 |   0.0649808 |  3.01895 |  -0.0106569 |  4.99098     |
-
 
 If infinite sampling is desired, one can also receive a sampling generator through
 
@@ -274,30 +265,16 @@ import pandas as pd
 for i in range(n):
     next(sampler)
 
-print(pd.DataFrame.from_dict(container).to_markdown(tablefmt="github"))
+display_markdown(pd.DataFrame.from_dict(container).to_markdown(tablefmt="github"))
 ```
-
-    |    |         Z |           X |        Y |          V |            W |
-    |----|-----------|-------------|----------|------------|--------------|
-    |  0 |  1.11621  |    7.1328   |  7.11887 |    7.32343 |  3.78981e+28 |
-    |  1 |  4.10323  |  663.406    | 36.5858  |  663.219   | 40.9076      |
-    |  2 |  0.204141 |    0.156653 |  3.52908 |    1.15665 |  3.27329e+12 |
-    |  3 | 14.1364   | 2256.09     | 78.1634  | 2257.09    | 78.5177      |
-    |  4 |  2.36573  |   12.3968   |  9.93852 |   13.3968  |  9.32684     |
-
 
 If the target container is not provided, the generator returns a new `dict` for every sample.
 
 
 ```python
 sample = next(myscm.sample_iter())
-print(pd.DataFrame.from_dict(sample).to_markdown(tablefmt="github"))
+display_markdown(pd.DataFrame.from_dict(sample).to_markdown(tablefmt="github"))
 ```
-
-    |    |       Z |       X |       Y |      V |      W |
-    |----|---------|---------|---------|--------|--------|
-    |  0 | 4.80629 | 315.611 | 28.3654 | 314.89 | 29.571 |
-
 
 ## Plotting
 If you have graphviz installed, you can plot the DAG by calling
