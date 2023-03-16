@@ -244,82 +244,17 @@ The SCM allows drawing as many samples as needed through the method `myscm.sampl
 
 ```python
 n = 5
-myscm.sample(n)
+samples = myscm.sample(n)
+print(samples.to_markdown(tablefmt="github"))
 ```
 
-
-
-
-<div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>Z</th>
-      <th>X</th>
-      <th>Y</th>
-      <th>V</th>
-      <th>W</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>0</th>
-      <td>40.572258</td>
-      <td>24728.256097</td>
-      <td>239.998677</td>
-      <td>24729.256097</td>
-      <td>240.277460</td>
-    </tr>
-    <tr>
-      <th>1</th>
-      <td>2.160977</td>
-      <td>58.526196</td>
-      <td>12.863312</td>
-      <td>59.526196</td>
-      <td>35.278081</td>
-    </tr>
-    <tr>
-      <th>2</th>
-      <td>0.082608</td>
-      <td>0.109729</td>
-      <td>4.197514</td>
-      <td>-0.151263</td>
-      <td>8.155245</td>
-    </tr>
-    <tr>
-      <th>3</th>
-      <td>3.077596</td>
-      <td>17.760486</td>
-      <td>12.938334</td>
-      <td>18.642085</td>
-      <td>9.202887</td>
-    </tr>
-    <tr>
-      <th>4</th>
-      <td>2.827926</td>
-      <td>41.940615</td>
-      <td>15.496010</td>
-      <td>42.038150</td>
-      <td>17.801402</td>
-    </tr>
-  </tbody>
-</table>
-</div>
-
+    |    |        Z |           X |        Y |           V |            W |
+    |----|----------|-------------|----------|-------------|--------------|
+    |  0 | 0.518209 |   2.7238    |  5.79451 |   3.7238    |  1.80674e+73 |
+    |  1 | 0.218697 |   0.244446  |  2.71417 |  -0.486366  |  2.794       |
+    |  2 | 2.92446  |  82.1186    | 15.3297  |  82.6109    | 13.495       |
+    |  3 | 2.05183  | 108.124     | 15.4665  | 108         | 20.004       |
+    |  4 | 0.084261 |   0.0649808 |  3.01895 |  -0.0106569 |  4.99098     |
 
 
 If infinite sampling is desired, one can also receive a sampling generator through
@@ -339,14 +274,16 @@ import pandas as pd
 for i in range(n):
     next(sampler)
 
-pd.DataFrame.from_dict(container).to_markdown(tablefmt="github")
+print(pd.DataFrame.from_dict(container).to_markdown(tablefmt="github"))
 ```
 
-
-
-
-    '|    |           Z |            X |          Y |            V |          W |\n|----|-------------|--------------|------------|--------------|------------|\n|  0 |   2.75444   | 52.7477      |   15.8942  | 51.4274      |   12.1051  |\n|  1 |   1.12127   | 30.1337      |    7.20738 | 31.1337      |   10.0372  |\n|  2 |   1.29919   |  4.09387     |    7.83573 |  4.2901      |    9.32303 |\n|  3 |   0.0220445 |  0.00165026  |    2.99144 |  1.00165     |    3.36368 |\n|  4 | 730.656     |  1.38036e+07 | 5179.45    |  1.38036e+07 | 5180.96    |'
-
+    |    |         Z |           X |        Y |          V |            W |
+    |----|-----------|-------------|----------|------------|--------------|
+    |  0 |  1.11621  |    7.1328   |  7.11887 |    7.32343 |  3.78981e+28 |
+    |  1 |  4.10323  |  663.406    | 36.5858  |  663.219   | 40.9076      |
+    |  2 |  0.204141 |    0.156653 |  3.52908 |    1.15665 |  3.27329e+12 |
+    |  3 | 14.1364   | 2256.09     | 78.1634  | 2257.09    | 78.5177      |
+    |  4 |  2.36573  |   12.3968   |  9.93852 |   13.3968  |  9.32684     |
 
 
 If the target container is not provided, the generator returns a new `dict` for every sample.
@@ -354,14 +291,12 @@ If the target container is not provided, the generator returns a new `dict` for 
 
 ```python
 sample = next(myscm.sample_iter())
-pd.DataFrame.from_dict(sample).to_markdown(tablefmt="github")
+print(pd.DataFrame.from_dict(sample).to_markdown(tablefmt="github"))
 ```
 
-
-
-
-    '|    |        Z |        X |      Y |       V |        W |\n|----|----------|----------|--------|---------|----------|\n|  0 | 0.513833 | 0.317264 | 2.4459 | 1.31726 | -2.11589 |'
-
+    |    |       Z |       X |       Y |      V |      W |
+    |----|---------|---------|---------|--------|--------|
+    |  0 | 4.80629 | 315.611 | 28.3654 | 314.89 | 29.571 |
 
 
 ## Plotting
