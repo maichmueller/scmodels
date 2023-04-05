@@ -10,3 +10,7 @@ scmodels.egg-info/
 dist/
 
 docs/.ipynb_checkpoints/
+
+poetry.lock
+
+.tox/
