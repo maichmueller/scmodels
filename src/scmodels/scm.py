@@ -10,7 +10,6 @@ from typing import (
     Tuple,
     Iterable,
     Set,
-    Optional,
     Hashable,
     Optional,
     Sequence,

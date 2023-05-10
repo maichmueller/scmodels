@@ -5,12 +5,11 @@ import sympy
 from sympy.functions import *
 from sympy.stats import *
 from sympy.stats.rv import RandomSymbol
-from sympy.stats import __all__ as all_stats_imports
 
 
 from typing import *
 
-all_stats_imports = set(all_stats_imports)
+all_stats_imports = set(sympy.stats.__all__)
 
 var_p = regex.compile(r"(?<=([(]|[)*+-/%]))\w+(?=([)*+-/%]+|$))|^\w+(?=([)*+-/%]+|$))")
 digit_p = regex.compile(r"^\d+$")
