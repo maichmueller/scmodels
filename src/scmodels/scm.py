@@ -324,7 +324,7 @@ class SCM:
         else:
             seed = np.random.default_rng(seed)
         vars_ordered = list(self._causal_iterator(variables))
-        noise_iters: Dict[str, List[tuple[Optional[str], Iterable]]] = dict()
+        noise_iters: Dict[str, List[Tuple[Optional[str], Iterable]]] = dict()
         for node in vars_ordered:
             noise_gens = self.dag.nodes[node][self.noise_key]
             if noise_gens:
@@ -332,7 +332,6 @@ class SCM:
                 for noise_gen in noise_gens:
                     noise_iter = sample_iter(
                         noise_gen,
-                        numsamples=SingletonRegistry.Infinity,
                         seed=seed,
                     )
 
@@ -588,8 +587,7 @@ class SCM:
                 f"a {str(AssignmentMap).replace('typing.', '')}."
             )
 
-        for (node_name, assignment_pack) in assignments.items():
-
+        for node_name, assignment_pack in assignments.items():
             # a sequence of size 2 is expected to be (assignment string, noise model or List[noise model])
             if len(assignment_pack) == 2:
                 assignment_str, noise_model_list = assignment_pack
@@ -635,7 +633,7 @@ class SCM:
 
             # note that we have to ALWAYS ensure that the assignment func and the list of extended parents
             # (i.e. noise models + actual parent variables) is in exactly the same order as given to the
-            # lambidfying call! Otherwise, the Assignment class will assign the wrong positional order to the
+            # lambdifying call! Otherwise, the Assignment class will assign the wrong positional order to the
             # variables and call the functor incorrectly (since the order differs from when the sympy assignment
             # was lambdified)
             noise_and_parents = [
@@ -696,11 +694,7 @@ class SCM:
 
         The graphviz package has been marked as an optional package for this module and therefore needs to be installed
         by the user.
-        Note, that graphviz may demand further libraries to be supplied, thus the following
-        command should install the necessary dependencies on Ubuntu, if graphviz couldn't be found on your system.
-        Open a terminal and type:
-
-            ``sudo apt-get install graphviz libgraphviz-dev pkg-config``
+        Note, that graphviz may require dependant libraries, e.g. libgraphviz-dev on linux.
 
         Notes
         -----
