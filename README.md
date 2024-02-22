@@ -36,7 +36,7 @@ $X \rightarrow Y \leftarrow Z \rightarrow X$
 
 $\quad \quad \quad \quad \quad ~ \searrow $
 
-$\quad \quad \quad \quad \quad ~ \quad V \rightarrow W$
+$\quad \quad \quad \quad \quad ~ ~ ~ \quad V \rightarrow W$
 
 with the assignments
 
@@ -46,7 +46,7 @@ $X=3Z^2 \cdot N \quad [N \sim \text{LogNormal}(\mu=1,\sigma=1)]$
 
 $Y = 2Z + \sqrt{X} + N \quad [N \sim \text{Normal}(\mu=2,\sigma=1)]$
 
-$V = X + N^P \quad [N \sim \text{Normal}(\mu=0,\sigma=1), P \sim \text{Ber}(0.5)]$
+$V = Z + N^P \quad [N \sim \text{Normal}(\mu=0,\sigma=1), P \sim \text{Ber}(0.5)]$
 
 $W = V + \exp(T) - \log(M) * N \quad [N \sim \text{Normal}(\mu=0,\sigma=1), T \sim \text{StudentT}(\nu = 0.5), M \sim \text{Exp}(\lambda = 1)]$
 
@@ -67,7 +67,7 @@ assignment_seq = [
     "Z = M, M ~ LogLogistic(alpha=1, beta=1)",
     "X = N * 3 * Z ** 2, N ~ LogNormal(mean=1, std=1)",
     "Y = P + 2 * Z + sqrt(X), P ~ Normal(mean=2, std=1)",
-    "V = N**P + X, N ~ Normal(0,1) / P ~ Bernoulli(0.5)",
+    "V = N**P + Z, N ~ Normal(0,1) / P ~ Bernoulli(0.5)",
     "W = exp(T) - log(M) * N + V, M ~ Exponential(1) / T ~ StudentT(0.5) / N ~ Normal(0, 2)",
 ]
 
@@ -113,7 +113,7 @@ assignment_map = {
         Normal("P", mean=2, std=1),
     ),
     "V": (
-        "N**P + X",
+        "N**P + Z",
         [Normal("N", 0, 1), Bernoulli("P", 0.5)]
     ),
     "W": (
@@ -166,8 +166,8 @@ functional_map = {
         Normal("P", mean=2, std=1),
     ),
     "V": (
-        ["X"],
-        lambda n, p, x: n ** p + x,
+        ["Z"],
+        lambda n, p, z: n ** p + z,
         [Normal("N", mean=0, std=1), Bernoulli("P", p=0.5)]
     ),
     "W": (
@@ -197,13 +197,13 @@ which includes mentioning active interventions and the assignments.
 print(myscm)
 ```
 
-    Structural Causal Model of 5 variables: Z, X, Y, V, W
+    Structural Causal Model of 5 variables: Z, X, V, Y, W
     Variables with active interventions: []
     Assignments:
     Z := f(M) = M	 [ M ~ LogLogistic(alpha=1, beta=1) ]
     X := f(N, Z) = N * 3 * Z ** 2	 [ N ~ LogNormal(mean=1, std=1) ]
     Y := f(P, Z, X) = P + 2 * Z + sqrt(X)	 [ P ~ Normal(mean=2, std=1) ]
-    V := f(N, P, X) = N**P + X	 [ N ~ Normal(mean=0, std=1), P ~ Bernoulli(p=0.5, succ=1, fail=0) ]
+    V := f(N, P, Z) = N**P + Z	 [ N ~ Normal(mean=0, std=1), P ~ Bernoulli(p=0.5, succ=1, fail=0) ]
     W := f(M, T, N, V) = exp(T) - log(M) * N + V	 [ M ~ Exponential(rate=1), T ~ StudentT(nu=0.5), N ~ Normal(mean=0, std=2) ]
 
 
@@ -214,13 +214,13 @@ In the case of custom callable assignments, the output is less informative
 print(myscm3)
 ```
 
-    Structural Causal Model of 5 variables: Z, X, Y, V, W
+    Structural Causal Model of 5 variables: Z, X, V, Y, W
     Variables with active interventions: []
     Assignments:
     Z := f(M) = __unknown__	 [ M ~ LogLogistic(alpha=1, beta=1) ]
     X := f(N, Z) = __unknown__	 [ N ~ LogNormal(mean=1, std=1) ]
     Y := f(P, Z, X) = __unknown__	 [ P ~ Normal(mean=2, std=1) ]
-    V := f(N, P, X) = __unknown__	 [ N ~ Normal(mean=0, std=1), P ~ Bernoulli(p=0.5, succ=1, fail=0) ]
+    V := f(N, P, Z) = __unknown__	 [ N ~ Normal(mean=0, std=1), P ~ Bernoulli(p=0.5, succ=1, fail=0) ]
     W := f(N, T, M, V) = __unknown__	 [ N ~ Normal(mean=0, std=1), T ~ StudentT(nu=0.5), M ~ Exponential(rate=1) ]
 
 
@@ -274,13 +274,13 @@ display_data(samples)
 ```
 
 
-|    |        Z |          X |        Y |          V |              W |
-|----|----------|------------|----------|------------|----------------|
-|  0 | 1.20103  |    3.9193  |  9.30217 |    4.9193  |    5.47358     |
-|  1 | 9.50258  | 1182.1     | 54.8508  | 1182.32    | 1195.31        |
-|  2 | 3.79344  |  190.467   | 22.8043  |  191.467   |  192.761       |
-|  3 | 0.55271  |    6.04547 |  6.09616 |    7.04547 |    1.47984e+16 |
-|  4 | 0.747717 |    1.84065 |  4.67712 |    2.84065 |    3.22034     |
+|    |        Z |         V |         X |            W |        Y |
+|----|----------|-----------|-----------|--------------|----------|
+|  0 | 2.64569  |  3.64569  | 43.2415   |  4.62462     | 13.868   |
+|  1 | 0.767766 |  0.198268 |  7.15611  |  2.27034     |  6.54991 |
+|  2 | 0.153719 | -1.05605  |  0.133849 | -3.12515     |  2.70591 |
+|  3 | 0.618007 |  0.591285 |  6.96794  | -1.99266     |  6.34443 |
+|  4 | 1.13469  |  2.13469  | 94.7435   |  7.48886e+19 | 15.0589  |
 
 
 If infinite sampling is desired, one can also receive a sampling generator through
@@ -302,13 +302,13 @@ display_data(container)
 ```
 
 
-|    |        Z |        X |        Y |        V |             W |
-|----|----------|----------|----------|----------|---------------|
-|  0 | 3.81091  | 22.7159  | 14.5004  | 23.7159  |  5.30384e+187 |
-|  1 | 1.05063  | 45.3197  | 12.9535  | 46.3197  | 46.9866       |
-|  2 | 2.64049  | 46.1025  | 12.9952  | 44.2199  | 43.9215       |
-|  3 | 0.697718 | 31.6524  |  8.34079 | 32.6524  | 33.6859       |
-|  4 | 0.391625 |  1.68732 |  5.13801 |  2.68732 |  7.78895      |
+|    |        Z |         V |          X |          W |        Y |
+|----|----------|-----------|------------|------------|----------|
+|  0 | 7.49896  |  8.49896  | 791.106    |   22.2357  | 45.6268  |
+|  1 | 3.91207  |  3.65548  | 299.403    | 7202.87    | 25.7563  |
+|  2 | 0.44649  |  1.44649  |   0.967149 |    1.69979 |  3.35173 |
+|  3 | 4.35463  |  5.35463  |  81.4588   |   10.1406  | 17.2257  |
+|  4 | 0.523616 | -0.229539 |   0.737044 |    0.93291 |  3.95719 |
 
 
 If the target container is not provided, the generator returns a new `dict` for every sample.
@@ -321,9 +321,9 @@ display_data(sample)
 ```
 
 
-|    |       Z |       X |       Y |       V |       W |
-|----|---------|---------|---------|---------|---------|
-|  0 | 2.26411 | 20.7726 | 12.1824 | 21.7726 | 23.2074 |
+|    |       Z |       V |       X |       W |      Y |
+|----|---------|---------|---------|---------|--------|
+|  0 | 6.70811 | 8.43954 | 406.019 | 13.3792 | 36.535 |
 
 
 ## Plotting
