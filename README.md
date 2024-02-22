@@ -21,11 +21,11 @@ Either install via pip
 ```
 pip install scmodels
 ```
-or via cloning the repository and running the setup.py file
+or via cloning the repository and running the installation locally
 ```
 git clone https://github.com/maichmueller/scmodels
-cd scm
-python setup.py install
+cd scmodels
+pip install . 
 ```
 
 # Building an SCM
@@ -47,9 +47,7 @@ Describe the assignments as strings of the form:
 
 'VAR = FUNC(Noise, parent1, parent2, ...), Noise ~ DistributionXYZ'
 
-Note that - out of convenience - in this case, one does not need to (and isn't allowed to)
-restate the noise symbol string in the distribution (as would otherwise be necessary
-in constructing sympy distributions).
+Note that in this case, one must not restate the noise symbol string in the distribution (as would otherwise be necessary in constructing sympy distributions).
 
 
 ```python
@@ -81,9 +79,9 @@ and a tuple defining the assignment and the noise.
 ### 2-Tuple: Assignments via SymPy parsing
 
 To refer to SymPy's string parsing capability (this includes numpy functions) provide a dict entry
-with a 2-tuple as value of the form:
+with a 2-tuples as values of the form:
 
-`'var': ('assignment string', noise)`
+`'var': ('assignment name string', noise)`
 
 
 
@@ -250,13 +248,13 @@ display_data(samples)
 ```
 
 
-|    |         Z |           X |         Y |          V |         W |
-|----|-----------|-------------|-----------|------------|-----------|
-|  0 |  8.28757  |  138.147    |  30.8844  |  137.326   |  32.0845  |
-|  1 |  1.70256  |   12.9021   |   9.46693 |   11.5301  |  11.1152  |
-|  2 |  0.455401 |    0.528547 |   4.85553 |    1.49225 |   8.91876 |
-|  3 |  9.85962  |  731.808    |  48.5399  |  732.921   |  54.1981  |
-|  4 | 43.1178   | 9801.82     | 185.615   | 9802.82    | 189.002   |
+|    |        Z |         X |        Y |          V |             W |
+|----|----------|-----------|----------|------------|---------------|
+|  0 | 5.34435  | 319.896   | 29.9247  | 320.233    | 295.016       |
+|  1 | 3.75903  |  34.3318  | 15.1021  |  35.3318   |  25.7868      |
+|  2 | 0.139384 |   1.69467 |  3.40247 |   0.489931 |   3.78595     |
+|  3 | 0.909927 |   2.68556 |  7.56115 |   1.63023  |   5.64316     |
+|  4 | 3.90135  | 379.542   | 29.4002  | 380.542    |   2.04621e+07 |
 
 
 If infinite sampling is desired, one can also receive a sampling generator through
@@ -271,8 +269,6 @@ sampler = myscm.sample_iter(container)
 
 
 ```python
-import pandas as pd
-
 for i in range(n):
     next(sampler)
 
@@ -280,13 +276,13 @@ display_data(container)
 ```
 
 
-|    |         Z |          X |        Y |          V |        W |
-|----|-----------|------------|----------|------------|----------|
-|  0 |  0.531294 |    3.24348 |  7.27157 |    4.24348 |  9.45311 |
-|  1 |  9.97958  | 1600.28    | 64.072   | 1601.28    | 66.3523  |
-|  2 | 10.0277   | 1054.83    | 54.4638  | 1055.83    | 55.7446  |
-|  3 |  0.67975  |    5.53122 |  4.51801 |    3.47128 | 15.6978  |
-|  4 |  1.86589  |   23.3707  | 10.537   |   23.4361  |  7.44619 |
+|    |         Z |          X |       Y |         V |              W |
+|----|-----------|------------|---------|-----------|----------------|
+|  0 | 0.118367  | 0.509894   | 1.59559 |  0.784006 |    6.18228e+08 |
+|  1 | 0.513442  | 1.31883    | 3.32718 |  0.683274 | 3935.29        |
+|  2 | 0.0117339 | 0.00186205 | 3.06937 |  2.08962  |    3.88855     |
+|  3 | 0.971989  | 4.31441    | 4.90958 |  5.31441  |    6.36447     |
+|  4 | 0.66715   | 9.53737    | 8.28962 | 10.5374   |    9.04728     |
 
 
 If the target container is not provided, the generator returns a new `dict` for every sample.
@@ -299,9 +295,9 @@ display_data(sample)
 ```
 
 
-|    |        Z |        X |       Y |        V |       W |
-|----|----------|----------|---------|----------|---------|
-|  0 | 0.527959 | 0.336408 | 5.79713 | 0.557822 | 5.85273 |
+|    |        Z |       X |       Y |       V |       W |
+|----|----------|---------|---------|---------|---------|
+|  0 | 0.899388 | 25.6606 | 10.5937 | 25.7259 | 12.1229 |
 
 
 ## Plotting
