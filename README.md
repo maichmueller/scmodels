@@ -34,13 +34,7 @@ In order to declare the SCM
 
 $X \rightarrow Y \leftarrow Z \rightarrow X$
 
-$\quad\quad\downarrow$
-
-$\quad\quadV$ 
-
-$\quad\quad\downarrow$
-
-$\quad\quadW$
+$\quad \quad \quad \searrow V \rightarrow W$
 
 with the assignments
 
@@ -52,7 +46,7 @@ $Y = 2Z + \sqrt{X} + N \quad [N \sim \text{Normal}(\mu=2,\sigma=1)]$
 
 $V = X + N^P \quad [N \sim \text{Normal}(\mu=0,\sigma=1), P \sim \text{Ber}(0.5)]$
 
-$W = Y + \exp(T) - \log(M) * N \quad [N \sim \text{Normal}(\mu=0,\sigma=1), T \sim \text{StudentT}(0.5), M \sim \text{Exp}(1)]$
+$W = V + \exp(T) - \log(M) * N \quad [N \sim \text{Normal}(\mu=0,\sigma=1), T \sim \text{StudentT}(\nu = 0.5), M \sim \text{Exp}(\lambda = 1)]$
 
 there are 2 different ways implemented.
 
@@ -72,7 +66,7 @@ assignment_seq = [
     "X = N * 3 * Z ** 2, N ~ LogNormal(mean=1, std=1)",
     "Y = P + 2 * Z + sqrt(X), P ~ Normal(mean=2, std=1)",
     "V = N**P + X, N ~ Normal(0,1) / P ~ Bernoulli(0.5)",
-    "W = exp(T) - log(M) * N + Y, M ~ Exponential(1) / T ~ StudentT(0.5) / N ~ Normal(0, 2)",
+    "W = exp(T) - log(M) * N + V, M ~ Exponential(1) / T ~ StudentT(0.5) / N ~ Normal(0, 2)",
 ]
 
 myscm = SCM(assignment_seq)
@@ -121,7 +115,7 @@ assignment_map = {
         [Normal("N", 0, 1), Bernoulli("P", 0.5)]
     ),
     "W": (
-        "exp(T) - log(M) * N + Y",
+        "exp(T) - log(M) * N + V",
         [Normal("N", 0, 1), StudentT("T", 0.5), Exponential("M", 1)]
     )
 }
@@ -175,8 +169,8 @@ functional_map = {
         [Normal("N", mean=0, std=1), Bernoulli("P", p=0.5)]
     ),
     "W": (
-        ["Y"],
-        lambda n, t, m, y: np.exp(m) - np.log(m) * n + y,
+        ["V"],
+        lambda n, t, m, v: np.exp(m) - np.log(m) * n + v,
         [Normal("N", mean=0, std=1), StudentT("T", nu=0.5), Exponential("M", rate=1)]
     )
 }
@@ -208,7 +202,7 @@ print(myscm)
     X := f(N, Z) = N * 3 * Z ** 2	 [ N ~ LogNormal(mean=1, std=1) ]
     Y := f(P, Z, X) = P + 2 * Z + sqrt(X)	 [ P ~ Normal(mean=2, std=1) ]
     V := f(N, P, X) = N**P + X	 [ N ~ Normal(mean=0, std=1), P ~ Bernoulli(p=0.5, succ=1, fail=0) ]
-    W := f(M, T, N, Y) = exp(T) - log(M) * N + Y	 [ M ~ Exponential(rate=1), T ~ StudentT(nu=0.5), N ~ Normal(mean=0, std=2) ]
+    W := f(M, T, N, V) = exp(T) - log(M) * N + V	 [ M ~ Exponential(rate=1), T ~ StudentT(nu=0.5), N ~ Normal(mean=0, std=2) ]
 
 
 In the case of custom callable assignments, the output is less informative
@@ -225,7 +219,7 @@ print(myscm3)
     X := f(N, Z) = __unknown__	 [ N ~ LogNormal(mean=1, std=1) ]
     Y := f(P, Z, X) = __unknown__	 [ P ~ Normal(mean=2, std=1) ]
     V := f(N, P, X) = __unknown__	 [ N ~ Normal(mean=0, std=1), P ~ Bernoulli(p=0.5, succ=1, fail=0) ]
-    W := f(N, T, M, Y) = __unknown__	 [ N ~ Normal(mean=0, std=1), T ~ StudentT(nu=0.5), M ~ Exponential(rate=1) ]
+    W := f(N, T, M, V) = __unknown__	 [ N ~ Normal(mean=0, std=1), T ~ StudentT(nu=0.5), M ~ Exponential(rate=1) ]
 
 
 ## Interventions
@@ -278,13 +272,13 @@ display_data(samples)
 ```
 
 
-|    |         Z |           X |        Y |         V |             W |
-|----|-----------|-------------|----------|-----------|---------------|
-|  0 |  0.487414 |   2.60118   |  2.97101 |   3.9743  |  4.50352      |
-|  1 |  3.17663  |  67.7778    | 17.3829  |  69.0889  | 17.8396       |
-|  2 |  0.135394 |   0.0364198 |  2.86623 |   1.03642 |  5.98199e+179 |
-|  3 | 14.3801   | 708.979     | 58.7931  | 709.979   | 54.0402       |
-|  4 |  0.926893 |   2.79429   |  5.27679 |   3.79429 |  1.42811e+06  |
+|    |        Z |          X |        Y |          V |         W |
+|----|----------|------------|----------|------------|-----------|
+|  0 | 0.66297  |  10.1931   |  6.46418 |  11.1931   |  13.7942  |
+|  1 | 4.13396  | 118.748    | 21.4917  | 119.748    | 120.374   |
+|  2 | 1.17985  |  15.7258   |  7.50139 |  14.8652   |  13.3348  |
+|  3 | 0.703692 |   1.14846  |  5.61626 |   2.14846  |   4.2509  |
+|  4 | 0.406127 |   0.491951 |  2.73946 |   0.599376 |   4.48605 |
 
 
 If infinite sampling is desired, one can also receive a sampling generator through
@@ -306,13 +300,13 @@ display_data(container)
 ```
 
 
-|    |        Z |        X |       Y |       V |            W |
-|----|----------|----------|---------|---------|--------------|
-|  0 | 0.655391 | 8.0983   | 5.29177 | 9.14476 |  1.07718e+08 |
-|  1 | 1.96098  | 8.42858  | 9.50732 | 7.34202 | 10.4014      |
-|  2 | 1.13941  | 8.60048  | 7.91598 | 9.60048 |  6.47052     |
-|  3 | 0.220884 | 0.638205 | 3.67311 | 1.6382  |  4.17365     |
-|  4 | 0.724107 | 1.99639  | 6.18909 | 1.60155 |  7.15649e+20 |
+|    |         Z |           X |        Y |          V |          W |
+|----|-----------|-------------|----------|------------|------------|
+|  0 | 0.245245  |   0.350569  |  1.36311 |   1.35057  |    2.55552 |
+|  1 | 4.40467   | 115.112     | 19.7266  | 116.161    | 1335.16    |
+|  2 | 0.4119    |   4.09596   |  4.68904 |   5.09596  |    4.17195 |
+|  3 | 0.293207  |   0.75666   |  5.03049 |   1.75666  |   25.7978  |
+|  4 | 0.0336917 |   0.0179099 |  1.98778 |   0.451442 |   -1.65165 |
 
 
 If the target container is not provided, the generator returns a new `dict` for every sample.
@@ -325,9 +319,9 @@ display_data(sample)
 ```
 
 
-|    |       Z |       X |      Y |       V |           W |
-|----|---------|---------|--------|---------|-------------|
-|  0 | 13.0436 | 772.243 | 55.089 | 773.591 | 4.13827e+11 |
+|    |       Z |       X |       Y |       V |       W |
+|----|---------|---------|---------|---------|---------|
+|  0 | 1.17738 | 7.54974 | 7.81414 | 8.54974 | 6.97891 |
 
 
 ## Plotting
