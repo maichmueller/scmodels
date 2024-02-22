@@ -1,8 +1,8 @@
-| OS        |                                                                                          Status                                                                                       |
-| :-------------: |:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-| Linux       | [![L Py 3.7 - 3.12](https://github.com/maichmueller/scmodels/actions/workflows/pytest_linux.yml/badge.svg)](https://github.com/maichmueller/scmodels/actions/workflows/pytest_linux.yml) |
-| Windows |  [![W Py 3.7 - 3.12](https://github.com/maichmueller/scmodels/actions/workflows/pytest_win.yml/badge.svg)](https://github.com/maichmueller/scmodels/actions/workflows/pytest_win.yml) |
-| Mac |   [![M Py 3.7 - 3.12](https://github.com/maichmueller/scmodels/actions/workflows/pytest_mac.yml/badge.svg)](https://github.com/maichmueller/scmodels/actions/workflows/pytest_mac.yml) |
+| OS        |                                                                                        Status                                                                                        |
+| :-------------: |:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+| Linux       | [![Py 3.[7-12]](https://github.com/maichmueller/scmodels/actions/workflows/pytest_linux.yml/badge.svg)](https://github.com/maichmueller/scmodels/actions/workflows/pytest_linux.yml) |
+| Windows |   [![Py 3.[7-12]](https://github.com/maichmueller/scmodels/actions/workflows/pytest_win.yml/badge.svg)](https://github.com/maichmueller/scmodels/actions/workflows/pytest_win.yml)   |
+| Mac |   [![Py 3.[7-12]](https://github.com/maichmueller/scmodels/actions/workflows/pytest_mac.yml/badge.svg)](https://github.com/maichmueller/scmodels/actions/workflows/pytest_mac.yml)   |
 
 A Python package implementing Structural Causal Models (SCM).
 
@@ -274,13 +274,13 @@ display_data(samples)
 ```
 
 
-|    |           Z |         V |             X |          W |          Y |
-|----|-------------|-----------|---------------|------------|------------|
-|  0 |  12.8237    |  13.8237  | 330.444       |    25.4492 |   47.8287  |
-|  1 | 346.392     | 345.923   |   2.22594e+06 |   345.161  | 2186.14    |
-|  2 |   0.0225499 |   0.19242 |   0.00501532  |   inf      |    1.79588 |
-|  3 |  34.9408    |  35.7013  | 823.309       |    37.3808 |  100.953   |
-|  4 |   0.299657  |   1.29966 |   0.286933    | 48784.1    |    2.74616 |
+|    |          Z |        V |             X |           W |         Y |
+|----|------------|----------|---------------|-------------|-----------|
+|  0 |  0.659465  |  1.65947 |    2.92004    | 4.81721     |   6.59841 |
+|  1 |  0.0282705 |  1.02827 |    0.00120849 | 0.246531    |   4.73889 |
+|  2 |  8.1043    |  8.49249 |  299.494      | 9.20796     |  36.0882  |
+|  3 | 18.0355    | 17.1713  | 5070.17       | 1.04121e+08 | 110.457   |
+|  4 |  0.317779  |  1.31778 |    0.654577   | 1.66337     |   3.01472 |
 
 
 If infinite sampling is desired, one can also receive a sampling generator through
@@ -302,13 +302,13 @@ display_data(container)
 ```
 
 
-|    |         Z |         V |         X |        W |       Y |
-|----|-----------|-----------|-----------|----------|---------|
-|  0 | 1.41635   |  0.611009 |  5.66582  | 6.12247  | 6.57614 |
-|  1 | 0.601881  | -0.667745 |  7.26145  | 4.97457  | 5.36945 |
-|  2 | 1.20202   |  1.16725  | 37.7845   | 1.6738   | 9.5517  |
-|  3 | 0.0651225 |  1.06512  |  0.218878 | 3.595    | 2.74353 |
-|  4 | 0.544052  |  0.881595 |  0.890959 | 0.964005 | 4.16683 |
+|    |        Z |       V |          X |        W |        Y |
+|----|----------|---------|------------|----------|----------|
+|  0 | 2.00262  | 3.00262 | 175.695    |  7.57043 | 19.6734  |
+|  1 | 2.15767  | 3.15767 |  46.2013   |  3.91246 | 13.6866  |
+|  2 | 0.20817  | 1.20817 |   0.186463 |  3.24792 |  1.04946 |
+|  3 | 4.00431  | 2.91548 |  66.7369   | 12.5644  | 17.4684  |
+|  4 | 0.496986 | 1.49699 |   0.793554 |  2.49443 |  2.75136 |
 
 
 If the target container is not provided, the generator returns a new `dict` for every sample.
@@ -323,7 +323,7 @@ display_data(sample)
 
 |    |       Z |       V |       X |       W |       Y |
 |----|---------|---------|---------|---------|---------|
-|  0 | 1.23717 | 1.58417 | 18.4954 | 19.7196 | 9.05674 |
+|  0 | 1.00299 | 2.00299 | 2.47754 | 1.27388 | 7.33301 |
 
 
 ## Plotting
