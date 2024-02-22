@@ -30,15 +30,29 @@ pip install .
 
 # Building an SCM
 
-In order to declare the SCM $X \rightarrow Y \leftarrow Z \rightarrow X$
+In order to declare the SCM 
+
+$X \rightarrow Y \leftarrow Z \rightarrow X$
+
+$\phantom{X \rightarrow}\downarrow$
+
+$\phantom{X \rightarrow}V$
+
+$\phantom{X \rightarrow}\downarrow$
+
+$\phantom{X \rightarrow}W$
 
 with the assignments
 
 $Z \sim \text{LogLogistic} (\alpha=1,\beta=1)$
 
-$X=3Z^2 \cdot N \quad [N = \text{LogNormal}(\mu=1,\sigma=1)]$
+$X=3Z^2 \cdot N \quad [N \sim \text{LogNormal}(\mu=1,\sigma=1)]$
 
-$Y = 2Z + \sqrt{X} + N \quad [N=\text{Normal}(\mu=2,\sigma=1)]$
+$Y = 2Z + \sqrt{X} + N \quad [N \sim \text{Normal}(\mu=2,\sigma=1)]$
+
+$V = X + N^P \quad [N \sim \text{Normal}(\mu=0,\sigma=1), P \sim \text{Ber}(0.5)]$
+
+$W = Y + \exp(T) - \log(M) * N \quad [N \sim \text{Normal}(\mu=0,\sigma=1), T \sim \text{StudentT}(0.5), M \sim \text{Exp}(1)]$
 
 there are 2 different ways implemented.
 
@@ -87,7 +101,7 @@ with a 2-tuples as values of the form:
 
 
 ```python
-from sympy.stats import LogLogistic, LogNormal, Normal, Bernoulli
+from sympy.stats import LogLogistic, LogNormal, Normal, Bernoulli, StudentT, Exponential
 
 assignment_map = {
     "Z": (
@@ -105,6 +119,10 @@ assignment_map = {
     "V": (
         "N**P + X",
         [Normal("N", 0, 1), Bernoulli("P", 0.5)]
+    ),
+    "W": (
+        "exp(T) - log(M) * N + Y",
+        [Normal("N", 0, 1), StudentT("T", 0.5), Exponential("M", 1)]
     )
 }
 
@@ -151,6 +169,16 @@ functional_map = {
         Y_assignment,
         Normal("P", mean=2, std=1),
     ),
+    "V": (
+        ["X"],
+        lambda n, p, x: n ** p + x,
+        [Normal("N", mean=0, std=1), Bernoulli("P", p=0.5)]
+    ),
+    "W": (
+        ["Y"],
+        lambda n, t, m, y: np.exp(m) - np.log(m) * n + y,
+        [Normal("N", mean=0, std=1), StudentT("T", nu=0.5), Exponential("M", rate=1)]
+    )
 }
 
 myscm3 = SCM(functional_map)
@@ -190,12 +218,14 @@ In the case of custom callable assignments, the output is less informative
 print(myscm3)
 ```
 
-    Structural Causal Model of 3 variables: Z, X, Y
+    Structural Causal Model of 5 variables: Z, X, Y, V, W
     Variables with active interventions: []
     Assignments:
     Z := f(M) = __unknown__	 [ M ~ LogLogistic(alpha=1, beta=1) ]
     X := f(N, Z) = __unknown__	 [ N ~ LogNormal(mean=1, std=1) ]
     Y := f(P, Z, X) = __unknown__	 [ P ~ Normal(mean=2, std=1) ]
+    V := f(N, P, X) = __unknown__	 [ N ~ Normal(mean=0, std=1), P ~ Bernoulli(p=0.5, succ=1, fail=0) ]
+    W := f(N, T, M, Y) = __unknown__	 [ N ~ Normal(mean=0, std=1), T ~ StudentT(nu=0.5), M ~ Exponential(rate=1) ]
 
 
 ## Interventions
@@ -248,13 +278,13 @@ display_data(samples)
 ```
 
 
-|    |          Z |             X |         Y |           V |         W |
-|----|------------|---------------|-----------|-------------|-----------|
-|  0 |  1.11766   |   107.234     |  14.868   |   107.244   |  13.3228  |
-|  1 | 64.6222    | 72460.5       | 399.588   | 72461.9     | 394.393   |
-|  2 |  8.29922   |   149.037     |  30.5268  |   150.037   |  32.6407  |
-|  3 |  0.103092  |     0.0862896 |   2.71232 |     1.08629 |  -5.29973 |
-|  4 |  0.0762328 |     0.0964081 |   1.22784 |     1.09641 |   1.9555  |
+|    |         Z |           X |         Y |           V |         W |
+|----|-----------|-------------|-----------|-------------|-----------|
+|  0 |  3.44839  |    240.015  |  23.9563  |    241.015  |  84.4163  |
+|  1 | 54.9004   | 169207      | 523.199   | 169208      | 531.479   |
+|  2 |  2.49301  |     44.9493 |  14.563   |     43.2852 |  13.6829  |
+|  3 | 12.402    |    196.152  |  39.4149  |    195.123  |  46.2811  |
+|  4 |  0.270915 |      1.1009 |   3.51604 |      2.1009 |   3.09127 |
 
 
 If infinite sampling is desired, one can also receive a sampling generator through
@@ -276,13 +306,13 @@ display_data(container)
 ```
 
 
-|    |         Z |          X |         Y |          V |            W |
-|----|-----------|------------|-----------|------------|--------------|
-|  0 |  3.27366  |  100.785   |  18.782   |  101.214   | 21.1568      |
-|  1 |  0.478833 |    2.5053  |   3.94407 |    1.12591 |  4.23761     |
-|  2 |  0.529114 |    2.38697 |   4.4332  |    3.00825 |  8.29801     |
-|  3 | 27.2011   | 6015.56    | 133.954   | 6015.35    |  5.24678e+29 |
-|  4 |  0.677336 |    9.21205 |   7.00407 |   10.212   |  4.50253e+08 |
+|    |        Z |         X |       Y |          V |        W |
+|----|----------|-----------|---------|------------|----------|
+|  0 | 0.244168 |  0.391767 | 3.6503  |  1.24161   | -3.62803 |
+|  1 | 0.425288 |  0.548331 | 2.96633 |  1.54833   |  3.33953 |
+|  2 | 1.32289  |  9.19288  | 7.71076 | 10.1929    |  7.09641 |
+|  3 | 0.78491  |  0.439888 | 4.90967 |  0.0705772 |  5.4627  |
+|  4 | 1.53113  | 10.1164   | 6.72032 | 11.1164    | 15.4822  |
 
 
 If the target container is not provided, the generator returns a new `dict` for every sample.
@@ -295,9 +325,9 @@ display_data(sample)
 ```
 
 
-|    |        Z |        X |       Y |        V |       W |
-|----|----------|----------|---------|----------|---------|
-|  0 | 0.203063 | 0.236212 | 2.12095 | 0.206967 | 8.16585 |
+|    |       Z |       X |       Y |       V |       W |
+|----|---------|---------|---------|---------|---------|
+|  0 | 2.74712 | 49.9456 | 13.6013 | 49.7392 | 13.4912 |
 
 
 ## Plotting
