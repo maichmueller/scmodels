@@ -689,7 +689,7 @@ class SCM:
 
         This will attempt a tree plot of the bayesian_graphs, in the case that the graph is indeed a tree.
         However, because a causal graph is a DAG and can thus have directionless cycles (but not directional cycles), a
-        tree structure often can't be computed. Therefore this method relies on graphviz to compute a feasible
+        tree structure often can't be computed. Therefore, this method relies on graphviz to compute a feasible
         representation of the causal graph.
 
         The graphviz package has been marked as an optional package for this module and therefore needs to be installed
