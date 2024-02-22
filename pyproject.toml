@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = 'scmodels'
-version = '0.2.1'
+version = '0.3'
 authors = [
     { name = 'Michael Aichmueller', email = 'm.aichmueller@gmail.com' }
 ]
