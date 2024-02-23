@@ -1,11 +1,8 @@
-from collections import deque, defaultdict
 import re as regex
 
 import sympy
 from sympy.functions import *
 from sympy.stats import *
-from sympy.stats.rv import RandomSymbol
-
 
 from typing import *
 
@@ -38,7 +35,6 @@ def parse_assignments(assignment_strs: Sequence[str]):
     """
     functional_map = dict()
     for assignment in assignment_strs:
-
         # split the assignment 'X = f(Parents, Noise), Noise ~ D' into [X, f(Parents, Noise), Noise ~ D]
         assign_var, assignment_n_noise = assignment.split("=", 1)
         assign_noise_split = assignment_n_noise.split(",", 1)
@@ -54,7 +50,9 @@ def parse_assignments(assignment_strs: Sequence[str]):
     return functional_map
 
 
-def extract_parents(assignment_str: str, noise_var: List[Union[str, sympy.Symbol]]) -> List[str]:
+def extract_parents(
+    assignment_str: str, noise_var: List[Union[str, sympy.Symbol]]
+) -> List[str]:
     """
     Extract the parent variables in an assignment string.
 
@@ -109,11 +107,13 @@ def allocate_noise_model(noise_assignments: List[str]):
         noise_var, model = noise_assignment.split("~")
         noise_vars[i] = noise_var
         par_idx = model.find("(") + 1
-        if model[:par_idx-1] not in all_stats_imports:
+        if model[: par_idx - 1] not in all_stats_imports:
             # crude check whether the noise model is supported
-            raise ValueError(f"noise model {model[:par_idx-1]} not supported. Check for spelling errors.")
+            raise ValueError(
+                f"noise model {model[:par_idx - 1]} not supported. Check for spelling errors."
+            )
         model = model[:par_idx] + r'"' + noise_var + r'",' + model[par_idx:]
-        exec(f"model_symbs[i] = {model}")
+        model_symbs[i] = eval(model)
     return noise_vars, model_symbs
 
 

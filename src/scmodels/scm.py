@@ -23,7 +23,6 @@ import numpy as np
 import pandas as pd
 import sympy
 from networkx.drawing.nx_agraph import graphviz_layout
-from sympy.core.singleton import SingletonRegistry
 from sympy.stats import sample, sample_iter, random_symbols
 from sympy.stats.rv import RandomSymbol
 from sympy.functions import *
@@ -560,6 +559,7 @@ class SCM:
     def is_dag(self):
         """
         Check whether the current DAG is indeed a DAG
+
         Returns
         -------
         bool,
@@ -983,8 +983,10 @@ def sympify_assignment(
         exec(f"{str(noise_model)} = noise_model")
     for par in parents:
         par_rv = scm[par].rv
-        exec(f"{str(par)} = par_rv")
-        exec(f"symbols.append({str(par)})")
+        # add the random variable to the local variables under the name provided by `par` to
+        # allow sympy to sympify the assignment with all variable names having local correspondents
+        locals()[par] = par_rv
+        symbols.append(par_rv)
     if isinstance(assignment, str):
         rv = sympy.sympify(eval(assignment))
     elif callable(assignment):
