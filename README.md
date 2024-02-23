@@ -90,9 +90,9 @@ and a tuple defining the assignment and the noise.
 ### 2-Tuple: Assignments via SymPy parsing
 
 To refer to SymPy's string parsing capability (this includes numpy functions) provide a dict entry
-with a 2-tuples as values of the form:
+with 2-tuples as values of the form:
 
-`'var': ('assignment name string', noise)`
+`'var': ('assignment string', noise)`
 
 
 
@@ -128,8 +128,8 @@ myscm2 = SCM(assignment_map)
 
 Agreements:
 - the name of the noise distribution provided in its constructor
-(e.g. `Normal("N", mean=2, std=1)`) has to align with the noise variable
-name (`N`) of the assignment string.
+(e.g. `Normal("N", mean=2, std=1)`) must align with the noise variable
+name (`N`) in the assignment string.
 - Multiple noise models in the assignment must be wrapped in an iterable (e.g. a list `[]`, or tuple `()`)
 
 ### 3-Tuple: Assignments with arbitrary callables
@@ -139,7 +139,7 @@ variables as keys and as values a sequence of length 3 of the form:
 
 `'var': (['parent1', 'parent2', ...], Callable, Noise)`
 
-This allows the user to supply complex functions outside the space of analytical functions.
+This allows the user to supply functions that are not limited to predefined function sets of `scmodels`' dependencies.
 
 
 ```python
@@ -182,9 +182,8 @@ myscm3 = SCM(functional_map)
 ```
 
 Agreements:
-- The callable's first parameter MUST be the noise input (unless the noise distribution is `None`).
-- The order of variables in the parents list determines the semantic order of input for parameters in the functional
-(left to right).
+- The callable's first parameter MUST be the noise inputs in the order that they are given, e.g. see variable $W$. If the noise distribution list contains only `None`, then they have to be omitted from the parameter list of the callable.
+- The order of variables in the parents list determines the order of input for parameters in the functional past the noise parameters (left to right).
 
 # Features
 
@@ -242,8 +241,7 @@ my_new_callable = lambda n, z: n + z
 myscm.intervention({"X": (None, my_new_callable, None)})
 ```
 
-For the example of the do-intervention $\text{do}(X=1)$,
-one can use the helper method `do_intervention`. The pendant for noise interventions is called `soft_intervention`:
+For the example of a do-intervention $\text{do}(X=1)$, the helper method `do_intervention` is provided. Its counterpart for noise interventions is `soft_intervention`:
 
 
 ```python
@@ -254,8 +252,10 @@ from sympy.stats import FiniteRV
 myscm.soft_intervention([("X", FiniteRV(str(myscm["X"].noise), density={-1: .5, 1: .5}))])
 ```
 
-Calling `undo_intervention` restores the original state of all variables from construction time, that have been passed. One can optionally specify,
-If no variables are specified (`variables=None`), all interventions are undone.
+Refer to the `sympy` docs for more information on building random variables.
+
+Calling `undo_intervention` restores the original state of *all* variables.
+If variables are specified (`variables=['X', 'Y']`), any interventions on *only those variables* are undone.
 
 
 ```python
@@ -275,16 +275,16 @@ display_data(samples)
 ```
 
 
-|    |          Z |          V |            X |             W |        Y |
-|----|------------|------------|--------------|---------------|----------|
-|  0 |  0.160658  |  1.16066   |    0.23537   |   6.74044     |  3.82048 |
-|  1 |  1.93633   |  1.46656   |   12.713     | 950.879       |  8.3907  |
-|  2 | 11.466     | 11.9838    | 3731.67      |  12.9351      | 85.5389  |
-|  3 |  4.46743   |  5.46743   |  126.974     |   6.99352     | 22.3588  |
-|  4 |  0.0545138 | -0.0494779 |    0.0325699 |   5.43628e+10 |  3.02945 |
+|    |        Z |        V |          X |         W |         Y |
+|----|----------|----------|------------|-----------|-----------|
+|  0 | 1.32652  |  2.32652 |  7.33384   |   3.20107 |  6.52168  |
+|  1 | 1.13431  |  2.13431 |  3.8058    | 854.798   |  5.46616  |
+|  2 | 0.573739 | -1.31797 |  1.77705   |  -2.68093 |  5.23906  |
+|  3 | 1.21373  |  2.21373 | 30.1412    |   2.0016  | 11.172    |
+|  4 | 0.117316 |  1.11732 |  0.0147985 |   1.35366 |  0.950457 |
 
 
-If infinite sampling is desired, one can also receive a sampling generator through
+If infinite sampling is desired, one can also receive a sampling generator through 
 
 
 ```python
@@ -303,13 +303,13 @@ display_data(container)
 ```
 
 
-|    |        Z |          V |         X |            W |        Y |
-|----|----------|------------|-----------|--------------|----------|
-|  0 | 0.234985 | -0.0755894 |  0.689961 |     1.24461  |  2.38084 |
-|  1 | 0.84864  |  1.28906   |  3.96059  | 36516.2      |  5.18648 |
-|  2 | 0.466498 |  0.244099  |  0.913627 |     0.984023 |  4.42272 |
-|  3 | 0.174429 | -0.013302  |  0.468001 |    -2.61133  |  2.96254 |
-|  4 | 6.03153  |  7.03153   | 81.1689   |     7.55204  | 21.0698  |
+|    |         Z |         V |         X |        W |       Y |
+|----|-----------|-----------|-----------|----------|---------|
+|  0 | 0.630663  | -0.151095 | 3.73489   |  2.18306 | 5.02001 |
+|  1 | 0.0978569 |  1.09786  | 0.0875172 | 77.555   | 2.47965 |
+|  2 | 0.225186  |  1.22519  | 0.264414  |  6.47678 | 3.98214 |
+|  3 | 0.143525  |  1.14352  | 0.254132  | 28.4377  | 3.5462  |
+|  4 | 1.13363   |  1.15934  | 6.6198    |  1.38153 | 7.38624 |
 
 
 If the target container is not provided, the generator returns a new `dict` for every sample.
@@ -322,9 +322,9 @@ display_data(sample)
 ```
 
 
-|    |        Z |       V |       X |       W |       Y |
-|----|----------|---------|---------|---------|---------|
-|  0 | 0.689579 | 1.68958 | 10.8241 | 15867.3 | 4.22216 |
+|    |        Z |       V |         X |       W |       Y |
+|----|----------|---------|-----------|---------|---------|
+|  0 | 0.124314 | 1.12431 | 0.0717258 | 2.43763 | 3.94194 |
 
 
 ## Plotting
