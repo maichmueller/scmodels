@@ -2,6 +2,19 @@ from scmodels import SCM
 from sympy.stats import *
 
 
+__all__ = [
+    "build_scm_from_assignmentmap",
+    "build_scm_from_assignmentstrs",
+    "build_scm_from_functionalmap",
+    "build_scm_simple",
+    "build_scm_medium",
+    "build_scm_linandpoly",
+    "build_first_readme_example",
+    "build_second_readme_example",
+    "build_third_readme_example",
+]
+
+
 def build_scm_from_assignmentmap(seed=0):
     cn = SCM(
         assignments={

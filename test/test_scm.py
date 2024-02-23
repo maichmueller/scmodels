@@ -2,9 +2,13 @@ import random
 import numpy as np
 import pandas as pd
 import pytest
+
 from numpy.polynomial.polynomial import Polynomial
 from test.build_scm import *
+
+from scmodels import SCM
 from scmodels.parser import parse_assignments, extract_parents
+from sympy.stats import *
 
 
 def manual_sample_linandpoly(n, dtype, names, seed):
