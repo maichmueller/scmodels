@@ -17,7 +17,7 @@ from typing import (
     Iterator,
     Callable,
 )
-
+from re import compile
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
@@ -36,6 +36,18 @@ AssignmentMap = Dict[str, Union[Tuple[str, RV], Tuple[List[str], Callable, RV]]]
 
 
 class Assignment:
+    noise_prefix = "__noise"
+    noise_suffix = "__"
+    noise_argsep = "@"
+    noise_sep = ":"
+    noise_regex = compile(
+        f"^{noise_prefix}{noise_argsep}"
+        + r"[\w^~&%$!()]*"
+        + noise_sep
+        + r"[\w^~&%$!()]*"
+        + noise_suffix
+    )
+
     def __init__(
         self,
         functor: Callable,
@@ -67,21 +79,18 @@ class Assignment:
                 args[self.parents_order[var]] = kwargs[var]
         return self.functor(*args)
 
-    def __str__(self):
+    def __repr__(self):
         if self.descriptor is None:
             return "__unknown__"
         return self.descriptor
 
     @staticmethod
-    def noise_argname(
-        name: Union[str, RV], node_name: Optional[Union[str, sympy.Symbol]] = None
-    ):
+    def noise_argname(name: Union[str, RV], node_name: Union[str, sympy.Symbol] = ""):
         return (
-            f"__"
-            f"noise"
-            f"{'/' if node_name is not None and bool(str(node_name)) else ''}{node_name}"
-            f"{'/' if str(name) else ''}{name}"
-            f"__"
+            f"{Assignment.noise_prefix}"
+            f"{Assignment.noise_argsep}{node_name}"
+            f"{Assignment.noise_sep}{name}"
+            f"{Assignment.noise_suffix}"
         )
 
 
@@ -325,7 +334,7 @@ class SCM:
 
                     noise_iters[node].append(
                         (
-                            Assignment.noise_argname(noise_gen, node_name=node),
+                            Assignment.noise_argname(noise_gen, node),
                             noise_iter,
                         )
                     )
@@ -626,7 +635,7 @@ class SCM:
             # variables and call the functor incorrectly (since the order differs from when the sympy assignment
             # was lambdified)
             noise_and_parents = [
-                Assignment.noise_argname(noise_model, node_name=node_name)
+                Assignment.noise_argname(noise_model, node_name)
                 for noise_model in noise_model_list
             ] + list(parents)
             assignment = Assignment(
@@ -892,6 +901,14 @@ class SCM:
                 visited_nodes.add(nn)
         for key, _ in sorted(var_causal_priority.items(), key=lambda x: -x[1]):
             yield key
+
+    @staticmethod
+    def is_noise_variable(var: str):
+        return Assignment.noise_regex.match(var) is not None
+
+    @staticmethod
+    def is_not_noise_variable(var: str):
+        return not SCM.is_noise_variable(var)
 
 
 def lambdify_assignment(
