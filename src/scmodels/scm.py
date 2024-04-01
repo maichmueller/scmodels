@@ -118,7 +118,7 @@ class SCM:
         "noise_repr",
     )
 
-    @dataclass
+    @dataclass(frozen=True)
     class NodeView:
         var: str
         parents: List[str]
