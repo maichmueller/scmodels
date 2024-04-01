@@ -321,7 +321,7 @@ class SCM:
         else:
             seed = np.random.default_rng(seed)
         vars_ordered = list(self._causal_iterator(variables))
-        noise_iters: Dict[str, List[Tuple[Optional[str], Iterable]]] = dict()
+        noise_iters: Dict[str, List[Tuple[Optional[str], Iterator]]] = dict()
         for node in vars_ordered:
             noise_gens = self.dag.nodes[node][self.noise_key]
             if noise_gens:
@@ -366,7 +366,11 @@ class SCM:
         self,
         interventions: Dict[
             str,
-            Tuple[Optional[List[str]], Optional[Union[str, Callable]], Optional[RV]],
+            Tuple[
+                Optional[List[str]],
+                Optional[Union[str, Callable]],
+                Optional[Union[RV, Sequence[RV]]],
+            ],
         ],
     ):
         """
@@ -393,7 +397,7 @@ class SCM:
                    the previous name symbol.
                    Pass 'None' to leave the original noise distribution intact.
         """
-        interventional_map = dict()
+        intervention_assignment_map = dict()
 
         for var, items in interventions.items():
             if var not in self.get_variables():
@@ -420,19 +424,19 @@ class SCM:
                 items[1] = existing_attr.assignment
 
             # whether the assignment is new or old: we have to parse it
-            if callable(items[1]) and items[0] is None:
-                # Rebuild the parents for the assignment, because no new parent info is given,
-                # but a callable assignment needs a parents list
-                sorted_parents = sorted(
-                    self.get_variable_args(var).items(),
-                    key=lambda k: k[1],
-                )
-                items[0] = [
-                    parent
-                    for parent, _ in sorted_parents[
-                        1:
-                    ]  # element 0 is the noise name (must be removed)
-                ]
+            if callable(items[1]):
+                if items[0] is None:
+                    # Rebuild the parents for the assignment, because no new parent info is given,
+                    # but a callable assignment needs a parents list
+                    # we are sorting by the positional index of the parent when passed as arg to the assignment
+                    sorted_parents = sorted(
+                        filter(
+                            lambda elem: SCM.is_not_noise_variable(elem[0]),
+                            self.get_variable_args(var).items(),
+                        ),
+                        key=lambda k: k[1],
+                    )
+                    items[0] = [parent for parent, _ in sorted_parents]
             elif isinstance(items[1], str):
                 # We reach this space only if a new assignment was provided, since existing assignments are already
                 # converted to a callable.
@@ -456,19 +460,19 @@ class SCM:
                 self.interventions_backup_parent[var] = parent_backup
                 self.dag.remove_edges_from([(parent, var) for parent in parent_backup])
             # patch up the attr dict as the provided items were merely strings and now need to be parsed by sympy.
-            interventional_map[var] = items
-        self.insert(interventional_map)
+            intervention_assignment_map[var] = items
+        self.insert(intervention_assignment_map)
 
-    def do_intervention(self, var_val_pairs: Sequence[Tuple[str, float]]):
+    def do_intervention(self, var_val_pairs: Iterable[Tuple[str, float]]):
         """
         Perform do-interventions, i.e. setting specific variables to a constant value.
-        This method removes the noise influence of the intervened variables.
+        This method removes the noise and parent influence of the intervened variables.
 
         Convenience wrapper around ``interventions`` method.
 
         Parameters
         ----------
-        var_val_pairs Sequence of str-float tuple,
+        var_val_pairs, Iterable of str-float tuples,
             the variables to intervene on with their new values.
         """
         interventions_dict = dict()
@@ -478,7 +482,7 @@ class SCM:
 
     def soft_intervention(
         self,
-        var_noise_pairs: Sequence[Tuple[str, RV]],
+        var_noise_pairs: Sequence[Tuple[str, Sequence[RV]]],
     ):
         """
         Perform noise interventions, i.e. modifying the noise variable of specific variables.

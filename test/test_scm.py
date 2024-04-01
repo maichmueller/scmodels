@@ -273,7 +273,7 @@ def test_scm_softintervention():
     n = 100
     standard_sample = cn.sample(n, seed=seed)
     # do the intervention
-    cn.soft_intervention([("X_2", FiniteRV(str(cn["X_2"].noise), density={0: 1.0}))])
+    cn.soft_intervention([("X_2", FiniteRV(cn["X_2"].noise[0].name, density={0: 1.0}))])
     sample = cn.sample(n)
     assignment = cn["X_2"].assignment
     manual_x2 = assignment(0, sample["X_0"], sample["X_1"])
@@ -346,6 +346,30 @@ def test_compositional_noise():
     assert (samples["X"] == 1).all()
     assert np.isclose(np.mean(samples["Y"]), np.mean(manual_y))
     assert np.isclose(np.mean(samples["Z"]), np.mean(manual_z))
+
+
+def test_compositional_noise_intervention():
+    cn = SCM(
+        [
+            "X = N, N ~ Normal(0,1)",
+            "Y = B**2 + X, B ~ Normal(0,1)",
+            "Z = T*M + Y, M ~ Exponential(1) / T ~ StudentT(0.5)",
+            "V = L + 2 * (X**2), L ~ Normal(0,1)",
+        ],
+        seed=0,
+    )
+    noise_prev = cn["Z"].noise
+    interv_noise = [Normal("K", -3.14, 2.713), Normal("D", 1.41, 7)]
+    interv_assignment = lambda k, d, v: (k + d) * v / 2
+    intervention_dict = {"Z": (["V"], interv_assignment, interv_noise)}
+    cn.intervention(intervention_dict)
+    assert cn["Z"] is not None
+    assert cn["Z"].parents == ["V"]
+    assert cn["Z"].noise == interv_noise
+    cn.undo_intervention()
+    assert cn["Z"] is not None
+    assert cn["Z"].parents == ["Y"]
+    assert cn["Z"].noise == noise_prev
 
 
 def test_compositional_noise_multi():
