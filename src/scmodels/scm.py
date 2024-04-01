@@ -16,6 +16,7 @@ from typing import (
     Sequence,
     Iterator,
     Callable,
+    Generator,
 )
 from re import compile
 import matplotlib.pyplot as plt
@@ -92,6 +93,14 @@ class Assignment:
             f"{Assignment.noise_sep}{name}"
             f"{Assignment.noise_suffix}"
         )
+
+
+@dataclass(frozen=True)
+class ColliderView:
+    parent_left: str
+    parent_right: str
+    child: str
+    is_v_structure: Optional[bool] = None
 
 
 class SCM:
@@ -558,6 +567,48 @@ class SCM:
             self.dag, set(x), set(y), set(s) if s is not None else set()
         )
 
+    def moral_graph(self):
+        """
+        Returns the moral graph of the underlying DAG.
+
+        The moral graph is the underlying DAG with all edges made undirected and collider parents connected.
+
+        Notes
+        -----
+        "Unmarried" parents of a common child are being "married" by this process, hence the name "moral graph".
+
+        Returns
+        -------
+        nx.Graph,
+            an undirected graph which connects all parents of collider nodes
+        """
+        return nx.moral_graph(self.dag)
+
+    def collider_iter(
+        self, only_v_structure: bool = False
+    ) -> Generator[ColliderView, None, None]:
+        """
+        Provide a generator that yields all colliders of the underlying DAG.
+
+        Colliders are triples of nodes (parent, child, other_parent)
+        in which both parent and other_parent causally affect the child,
+        but not each other.
+
+        Returns
+        -------
+        Generator[ColliderView, None, None],
+            the colliders/v-structures found
+        """
+        dag = self.dag
+        for par1, child, par2 in nx.compute_v_structures(dag):
+            adj_parents = dag.has_edge(par1, par2) or dag.has_edge(par2, par1)
+            if adj_parents and only_v_structure:
+                continue
+            ordered_parents = self._order_parents_by_arg_index(
+                self.get_variable_args(child), (par1, par2)
+            )
+            yield ColliderView(*ordered_parents, child, is_v_structure=not adj_parents)
+
     def is_dag(self):
         """
         Check whether the current DAG is indeed a DAG
@@ -907,16 +958,30 @@ class SCM:
             yield key
 
     @staticmethod
-    def is_noise_variable(var: str):
+    def is_noise_variable(var: str) -> bool:
         return Assignment.noise_regex.match(var) is not None
 
     @staticmethod
-    def is_not_noise_variable(var: str):
+    def is_not_noise_variable(var: str) -> bool:
         return not SCM.is_noise_variable(var)
+
+    @staticmethod
+    def _order_parents_by_arg_index(
+        arg_order: Dict[str, int], parents: Sequence[str]
+    ) -> List[str]:
+        return [
+            parent
+            for parent, _ in sorted(
+                ((par, arg_order[par]) for par in parents),
+                key=lambda p: p[1],
+            )
+        ]
 
 
 def lambdify_assignment(
-    parents: Iterable[str], assignment_str: str, noise_model_list: Optional[List[RV]]
+    parents: Iterable[str],
+    assignment_str: str,
+    noise_model_list: Optional[Iterable[RV]],
 ):
     """
     Parse the provided assignment string with sympy and then lambdifies it, to be used as a normal function.
@@ -927,8 +992,8 @@ def lambdify_assignment(
         the assignment to parse.
     parents: Iterable,
         the parents' names.
-    noise_model: RV,
-        the random variable inside the assignment.
+    noise_model_list: Iterable[RV],
+        iterable over the random variables inside the assignment.
 
     Returns
     -------
@@ -977,8 +1042,8 @@ def sympify_assignment(
         the assignment to parse.
     parents: Iterable,
         the parents' names.
-    noise_model: RV,
-        the random variable inside the assignment.
+    noise_model_list: Iterable[RV],
+        iterable over the random variables inside the assignment.
 
     Returns
     -------
@@ -1008,14 +1073,14 @@ def sympify_assignment(
     return rv
 
 
-def extract_rv_desc(rvs: Optional[List[RV]]):
+def extract_rv_desc(rvs: Optional[Iterable[RV]]):
     """
-    Extracts a human readable string description of the random variable.
+    Extracts a human-readable string description of the random variable.
 
     Parameters
     ----------
-    rv: RV,
-        the random variable.
+    rvs: Iterable[RV],
+        the random variables.
 
     Returns
     -------
@@ -1191,7 +1256,6 @@ def hierarchy_pos(
         else:
             leaf_count = 1
             leaf_pos_[root_] = (leftmost_, vert_loc_)
-        #        pos[root] = (leftmost + (leaf_count-1)*dx/2., vert_loc)
         print(leaf_count)
         return root_pos_, leaf_pos_, leaf_count
 

@@ -393,3 +393,43 @@ def test_compositional_noise_multi():
     assert (samples["X"] == 1).all()
     assert np.isclose(np.mean(samples["Y"]), np.mean(manual_y))
     assert np.isclose(np.mean(samples["Z"]), np.mean(manual_z))
+
+
+def test_collider_iter():
+    cn = SCM(
+        [
+            "X = 1",
+            "Y = 1",
+            "Z = X + Y",
+            # v-structure: (X, Y -> Z)
+            "A = Y + Z",
+            # v-structure: (Y, Z -> A)
+            "B = X + Z + A",
+            # v-structure: (X, Z -> B),
+            # v-structure: (X, A -> B),
+            # v-structure: (Z, A -> B)
+            "C = A + B",
+            # collider, but not v-structure: (A, B -> C) because A -> B as well
+            "D = 2 * B",
+            # NOT collider: (?, B -> D)
+        ]
+    )
+    colliders = list(cn.collider_iter())
+    collider_tuples = [(c.parent_left, c.parent_right, c.child) for c in colliders]
+    assert len(colliders) == 6
+    assert ("X", "Y", "Z") in collider_tuples
+    assert ("Y", "Z", "A") in collider_tuples
+    assert ("X", "Z", "B") in collider_tuples
+    assert ("X", "A", "B") in collider_tuples
+    assert ("Z", "A", "B") in collider_tuples
+    assert ("A", "B", "C") in collider_tuples
+
+    colliders = list(cn.collider_iter(True))
+    collider_tuples = [(c.parent_left, c.parent_right, c.child) for c in colliders]
+    assert len(colliders) == 2
+    assert ("X", "Y", "Z") in collider_tuples
+    assert ("Y", "Z", "A") not in collider_tuples
+    assert ("X", "Z", "B") not in collider_tuples
+    assert ("X", "A", "B") in collider_tuples
+    assert ("Z", "A", "B") not in collider_tuples
+    assert ("A", "B", "C") not in collider_tuples
