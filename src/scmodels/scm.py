@@ -571,8 +571,8 @@ class SCM:
 
     def insert(self, assignments: Union[AssignmentSeq, AssignmentMap]):
         """
-        Method to insert variables into the graph. The passable assignments are the same as for the constructor of
-        the SCM class.
+        Method to insert variables into the graph.
+        The accepted assignments are the same as for the constructor of the SCM class.
 
         Parameters
         ----------
