@@ -2,6 +2,7 @@ import logging
 import warnings
 from collections import deque, defaultdict
 from copy import deepcopy
+from dataclasses import dataclass
 from itertools import repeat
 from typing import (
     List,
@@ -108,26 +109,14 @@ class SCM:
         "noise_repr",
     )
 
+    @dataclass
     class NodeView:
-        """
-        A view of the variable's associated attributes
-        """
-
-        def __init__(
-            self,
-            var: str,
-            parents: List[str],
-            assignment: Assignment,
-            rv: RV,
-            noise: RV,
-            noise_repr: str,
-        ):
-            self.variable = var
-            self.parents = parents
-            self.assignment = assignment
-            self.rv = rv
-            self.noise = noise
-            self.noise_repr = noise_repr
+        var: str
+        parents: List[str]
+        assignment: Assignment
+        rv: RV
+        noise: List[RV]
+        noise_repr: List[str]
 
     def __init__(
         self,
@@ -233,7 +222,7 @@ class SCM:
 
     def __getitem__(self, var):
         attr_dict = self.dag.nodes[var]
-        return SCM.NodeView(var, self.dag.pred[var], **attr_dict)
+        return SCM.NodeView(var, list(self.dag.pred[var]), **attr_dict)
 
     def __str__(self):
         return self.str()
