@@ -640,8 +640,7 @@ class SCM:
         Provide a generator that yields all colliders of the underlying DAG.
 
         Colliders are triples of nodes (parent, child, other_parent)
-        in which both parent and other_parent causally affect the child,
-        but not each other.
+        in which both parent and other_parent causally affect the child.
 
         Returns
         -------
