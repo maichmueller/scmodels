@@ -17,6 +17,7 @@ from typing import (
     Iterator,
     Callable,
     Generator,
+    Type,
 )
 from re import compile
 import matplotlib.pyplot as plt
@@ -31,7 +32,7 @@ from sympy.functions import *
 
 from scmodels.parser import parse_assignments, extract_parents
 
-RV = RandomSymbol
+RV: Type[RandomSymbol] = RandomSymbol
 AssignmentSeq = Sequence[str]
 AssignmentMap = Dict[str, Union[Tuple[str, RV], Tuple[List[str], Callable, RV]]]
 
@@ -242,11 +243,59 @@ class SCM:
         attr_dict = self.dag.nodes[var]
         return SCM.NodeView(var, list(self.dag.pred[var]), **attr_dict)
 
-    def __str__(self):
-        return self.str()
-
     def __iter__(self):
         return self._causal_iterator()
+
+    def __str__(self):
+        """
+        Computes a string representation of the SCM. Specifically, returns a string of the form:
+
+        'Structural Causal Model of `nr_variables` variables: X_0, X_1, ...
+         Following variables are actively intervened on: [`list(intervened variables)`]
+         Current Functional Functions are:
+         X_0 := f(N) = `X_0 functional_string_representation` [ NoiseRepr ]
+         X_1 := f(N, X_0) = `X_1 functional_string_representation` [ NoiseRepr ]
+         ...'
+
+        Returns
+        -------
+        str,
+            the representation.
+        """
+        variables = self.get_variables()
+        nr_vars = len(variables)
+        lines = [
+            f"Structural Causal Model of {nr_vars} "
+            + ("variables: " if nr_vars > 1 else "variable: ")
+            + ", ".join(variables[0:10])
+            + (", ..." if nr_vars > 10 else ""),
+            f"Variables with active interventions: {list(self.interventions_backup_attr.keys())}",
+            "Assignments:",
+        ]
+        max_var_space = max([len(var_name) for var_name in variables])
+        for node in self.dag.nodes:
+            parents_vars = [pred for pred in self.dag.predecessors(node)]
+            node_view = self[node]
+            noise_vars = []
+            for noise_symbol in node_view.noise:
+                noise_str = (
+                    str(noise_symbol)
+                    if isinstance(noise_symbol, RV)
+                    else Assignment.noise_argname("")
+                )
+                noise_vars.append(noise_str)
+            parents_vars = noise_vars + parents_vars
+            args_str = ", ".join(parents_vars)
+            line = f"{str(node).rjust(max_var_space)} := f({args_str}) = {str(node_view.assignment)}"
+            if noise_vars:
+                # add explanation to the noise term
+                noise_definitions = [
+                    f"{noise_str} ~ {str(noise_repr)}"
+                    for noise_str, noise_repr in zip(noise_vars, node_view.noise_repr)
+                ]
+                line += f"\t [ " f"{', '.join(noise_definitions)}" f" ]"
+            lines.append(line)
+        return "\n".join(lines)
 
     def sample(
         self,
@@ -800,57 +849,6 @@ class SCM:
         if savepath is not None:
             fig.savefig(savepath)
         return fig, ax
-
-    def str(self):
-        """
-        Computes a string representation of the SCM. Specifically, returns a string of the form:
-
-        'Structural Causal Model of `nr_variables` variables: X_0, X_1, ...
-         Following variables are actively intervened on: [`list(intervened variables)`]
-         Current Functional Functions are:
-         X_0 := f(N) = `X_0 functional_string_representation`
-         X_1 := f(N, X_0) = `X_1 functional_string_representation`
-         ...'
-
-        Returns
-        -------
-        str,
-            the representation.
-        """
-        variables = self.get_variables()
-        nr_vars = len(variables)
-        lines = [
-            f"Structural Causal Model of {nr_vars} "
-            + ("variables: " if nr_vars > 1 else "variable: ")
-            + ", ".join(variables[0:10])
-            + (", ..." if nr_vars > 10 else ""),
-            f"Variables with active interventions: {list(self.interventions_backup_attr.keys())}",
-            "Assignments:",
-        ]
-        max_var_space = max([len(var_name) for var_name in variables])
-        for node in self.dag.nodes:
-            parents_vars = [pred for pred in self.dag.predecessors(node)]
-            node_view = self[node]
-            noise_vars = []
-            for noise_symbol in node_view.noise:
-                noise_str = (
-                    str(noise_symbol)
-                    if isinstance(noise_symbol, RV)
-                    else Assignment.noise_argname("")
-                )
-                noise_vars.append(noise_str)
-            parents_vars = noise_vars + parents_vars
-            args_str = ", ".join(parents_vars)
-            line = f"{str(node).rjust(max_var_space)} := f({args_str}) = {str(node_view.assignment)}"
-            if noise_vars:
-                # add explanation to the noise term
-                noise_definitions = [
-                    f"{noise_str} ~ {str(noise_repr)}"
-                    for noise_str, noise_repr in zip(noise_vars, node_view.noise_repr)
-                ]
-                line += f"\t [ " f"{', '.join(noise_definitions)}" f" ]"
-            lines.append(line)
-        return "\n".join(lines)
 
     def get_variables(self, causal_order: bool = True) -> List[str]:
         """
