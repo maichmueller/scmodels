@@ -540,7 +540,7 @@ class SCM:
         """
         interventions_dict = dict()
         for var, val in var_val_pairs:
-            interventions_dict[var] = (None, str(val), None)
+            interventions_dict[var] = ([], str(val), None)
         self.intervention(interventions_dict)
 
     def soft_intervention(
