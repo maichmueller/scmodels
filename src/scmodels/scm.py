@@ -220,6 +220,7 @@ class SCM:
         # in order to undo the interventions later.
         self.interventions_backup_attr: Dict = dict()
         self.interventions_backup_parent: Dict = dict()
+        self.interventions_backup_roots: Dict = dict()
 
         # build the graph:
         # any node will be given the attributes of function and noise to later sample from and also an incoming edge
@@ -513,10 +514,14 @@ class SCM:
                 self.interventions_backup_attr[var] = deepcopy(self.dag.nodes[var])
 
             if var not in self.interventions_backup_parent:
-                # the same logic goes for the parents backup.
+                # the same logic applies to the parents backup.
                 parent_backup = list(self.dag.predecessors(var))
                 self.interventions_backup_parent[var] = parent_backup
                 self.dag.remove_edges_from([(parent, var) for parent in parent_backup])
+
+            if var not in self.interventions_backup_roots:
+                # the same logic applies to the roots backup.
+                self.interventions_backup_roots[var] = self.roots.copy()
             # patch up the attr dict as the provided items were merely strings and now need to be parsed by sympy.
             intervention_assignment_map[var] = items
         self.insert(intervention_assignment_map)
@@ -578,6 +583,7 @@ class SCM:
             try:
                 attr_dict = self.interventions_backup_attr.pop(var)
                 parents = self.interventions_backup_parent.pop(var)
+                roots = self.interventions_backup_roots.pop(var)
             except KeyError:
                 logging.warning(
                     f"Variable '{var}' not found in intervention backup. Omitting it."
@@ -589,6 +595,7 @@ class SCM:
                 [(parent, var) for parent in self.dag.predecessors(var)]
             )
             self.dag.add_edges_from([(parent, var) for parent in parents])
+            self.roots = roots
 
     def d_separated(
         self, x: Sequence[str], y: Sequence[str], s: Optional[Sequence[str]] = None
