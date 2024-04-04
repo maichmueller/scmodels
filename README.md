@@ -65,11 +65,11 @@ Note that in this case, one must not restate the noise symbol string in the dist
 from scmodels import SCM
 
 assignment_seq = [
-    "Z = M, M ~ LogLogistic(alpha=1, beta=1)",
-    "X = N * 3 * Z ** 2, N ~ LogNormal(mean=1, std=1)",
-    "Y = P + 2 * Z + sqrt(X), P ~ Normal(mean=2, std=1)",
-    "V = N**P + Z, N ~ Normal(0,1) / P ~ Bernoulli(0.5)",
-    "W = exp(T) - log(M) * N + V, M ~ Exponential(1) / T ~ StudentT(0.5) / N ~ Normal(0, 2)",
+    "Z = M; M ~ LogLogistic(alpha=1, beta=1)",
+    "X = N * 3 * Z ** 2; N ~ LogNormal(mean=1, std=1)",
+    "Y = P + 2 * Z + sqrt(X); P ~ Normal(mean=2, std=1)",
+    "V = N**P + Z; N ~ Normal(0,1) / P ~ Bernoulli(0.5)",
+    "W = exp(T) - log(M) * N + V; M ~ Exponential(1) / T ~ StudentT(0.5) / N ~ Normal(0, 2)",
 ]
 
 myscm = SCM(assignment_seq)
@@ -249,7 +249,7 @@ myscm.do_intervention([("X", 1)])
 
 from sympy.stats import FiniteRV
 
-myscm.soft_intervention([("X", FiniteRV(str(myscm["X"].noise), density={-1: .5, 1: .5}))])
+myscm.soft_intervention([("X", FiniteRV(myscm["X"].noise[0].name, density={-1: .5, 1: .5}))])
 ```
 
 Refer to the `sympy` docs for more information on building random variables.
@@ -275,13 +275,13 @@ display_data(samples)
 ```
 
 
-|    |        Z |        V |          X |         W |         Y |
-|----|----------|----------|------------|-----------|-----------|
-|  0 | 1.32652  |  2.32652 |  7.33384   |   3.20107 |  6.52168  |
-|  1 | 1.13431  |  2.13431 |  3.8058    | 854.798   |  5.46616  |
-|  2 | 0.573739 | -1.31797 |  1.77705   |  -2.68093 |  5.23906  |
-|  3 | 1.21373  |  2.21373 | 30.1412    |   2.0016  | 11.172    |
-|  4 | 0.117316 |  1.11732 |  0.0147985 |   1.35366 |  0.950457 |
+|    |        Z |        V |         X |       W |        Y |
+|----|----------|----------|-----------|---------|----------|
+|  0 | 0.854202 | 0.193336 | 15.9145   | 1.60315 |  7.55694 |
+|  1 | 0.634422 | 0.951119 |  2.43486  | 5.59541 |  3.6478  |
+|  2 | 1.02354  | 2.02354  |  4.11357  | 2.12862 |  6.23834 |
+|  3 | 0.376173 | 2.2962   |  0.252316 | 2.83333 |  3.64392 |
+|  4 | 4.19568  | 2.894    | 36.2844   | 3.07636 | 16.4083  |
 
 
 If infinite sampling is desired, one can also receive a sampling generator through 
@@ -303,13 +303,13 @@ display_data(container)
 ```
 
 
-|    |         Z |         V |         X |        W |       Y |
-|----|-----------|-----------|-----------|----------|---------|
-|  0 | 0.630663  | -0.151095 | 3.73489   |  2.18306 | 5.02001 |
-|  1 | 0.0978569 |  1.09786  | 0.0875172 | 77.555   | 2.47965 |
-|  2 | 0.225186  |  1.22519  | 0.264414  |  6.47678 | 3.98214 |
-|  3 | 0.143525  |  1.14352  | 0.254132  | 28.4377  | 3.5462  |
-|  4 | 1.13363   |  1.15934  | 6.6198    |  1.38153 | 7.38624 |
+|    |        Z |         V |          X |            W |        Y |
+|----|----------|-----------|------------|--------------|----------|
+|  0 | 0.245579 |  0.814717 |   1.59715  |  2.10267     |  2.26984 |
+|  1 | 7.88344  |  8.88344  | 122.197    |  1.90523e+13 | 29.1743  |
+|  2 | 1.26534  |  1.29397  |  12.5345   |  0.523827    |  8.77073 |
+|  3 | 1.37904  |  2.37904  |  13.327    |  2.08063     |  9.14935 |
+|  4 | 0.230563 | -0.966714 |   0.354393 | -1.22201     |  3.09432 |
 
 
 If the target container is not provided, the generator returns a new `dict` for every sample.
@@ -322,9 +322,9 @@ display_data(sample)
 ```
 
 
-|    |        Z |       V |         X |       W |       Y |
-|----|----------|---------|-----------|---------|---------|
-|  0 | 0.124314 | 1.12431 | 0.0717258 | 2.43763 | 3.94194 |
+|    |       Z |      V |       X |      W |       Y |
+|----|---------|--------|---------|--------|---------|
+|  0 | 2.02308 | 3.1259 | 59.8718 | 4.2209 | 13.7312 |
 
 
 ## Plotting
