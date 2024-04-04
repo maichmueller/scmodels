@@ -142,7 +142,7 @@ class SCM:
         assignments: Union[AssignmentMap, AssignmentSeq],
         variable_tex_names: Optional[Dict] = None,
         seed: Optional[int] = None,
-        scm_name: str = "Structural Causal Model",
+        name: str = "Structural Causal Model",
     ):
         """
         Construct the SCM from an assignment map with the variables as keys and its assignment information
@@ -209,10 +209,10 @@ class SCM:
             If not provided, defaults to the input names in the functional map.
         seed: (optional) str,
             Seeding the graph for reproducibility.
-        scm_name: (optional) str,
+        name: (optional) str,
             The name of the SCM. Default is 'Structural Causal Model'.
         """
-        self.scm_name: str = scm_name
+        self.name: str = name
         self.rng_state = np.random.default_rng()  # we always have a local RNG machine
         self.seed(seed)
 
