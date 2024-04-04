@@ -713,6 +713,11 @@ class SCM:
             # a sequence of size 3 is expected to be (parents list, assignment string, noise model)
             elif len(assignment_pack) == 3:
                 parents, assignment_func, noise_model_list = assignment_pack
+                if isinstance(parents, str):
+                    # if the parents are a string we expect it to be delimited by a semicolon
+                    parents = parents.split(";")
+                else:
+                    assert isinstance(parents, Sequence)
                 if isinstance(noise_model_list, RV):
                     noise_model_list = [noise_model_list]
                 assert callable(
