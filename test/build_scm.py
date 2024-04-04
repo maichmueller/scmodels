@@ -31,9 +31,9 @@ def build_scm_from_assignmentmap(seed=0):
 def build_scm_from_assignmentstrs(seed=0):
     cn = SCM(
         assignments=[
-            "X_0 = N, N ~ Normal(mean=0, std=1)",
-            "X_1 = 1 + X_0 + N, N ~ Normal(mean=0, std=1)",
-            "X_3 = 0.3 * X_1 + X_0 + N, N ~ Normal(mean=0, std=1)",
+            "X_0 = N; N ~ Normal(mean=0, std=1)",
+            "X_1 = 1 + X_0 + N; N ~ Normal(mean=0, std=1)",
+            "X_3 = 0.3 * X_1 + X_0 + N; N ~ Normal(mean=0, std=1)",
         ],
         variable_tex_names={"X_0": "$X_0$", "X_1": "$X_1$", "X_3": "$X_3$"},
         seed=seed,
@@ -131,11 +131,11 @@ def build_scm_linandpoly(seed=0):
 
 def build_first_readme_example(seed=0):
     assignment_seq = [
-        "Z = M, M ~ LogLogistic(alpha=1, beta=1)",
-        "X = N * 3 * Z ** 2, N ~ LogNormal(mean=1, std=1)",
-        "Y = P + 2 * Z + sqrt(X), P ~ Normal(mean=2, std=1)",
-        "V = N**P + X, N ~ Normal(0,1) / P ~ Bernoulli(0.5)",
-        "W = exp(T) - log(M) * N + Y, M ~ Exponential(1) / T ~ StudentT(0.5) / N ~ Normal(0, 2)",
+        "Z = M; M ~ LogLogistic(alpha=1, beta=1)",
+        "X = N * 3 * Z ** 2; N ~ LogNormal(mean=1, std=1)",
+        "Y = P + 2 * Z + sqrt(X); P ~ Normal(mean=2, std=1)",
+        "V = N**P + X; N ~ Normal(0,1) / P ~ Bernoulli(0.5)",
+        "W = exp(T) - log(M) * N + Y; M ~ Exponential(1) / T ~ StudentT(0.5) / N ~ Normal(0, 2)",
     ]
 
     myscm = SCM(assignment_seq, seed=seed)

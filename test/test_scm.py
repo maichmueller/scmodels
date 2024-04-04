@@ -72,13 +72,13 @@ def same_elements(list1, list2):
 
 
 def test_parsing():
-    test_str = "Z_1 = Noise + 2*log(Y), Noise ~ Normal(0,1)"
+    test_str = "Z_1 = Noise + 2*log(Y); Noise ~ Normal(0,1)"
     func_map = parse_assignments([test_str])
     assert func_map["Z_1"][0] == "Noise + 2*log(Y)"
     assert str(func_map["Z_1"][1][0]) == "Noise"
     assert extract_parents(func_map["Z_1"][0], "Noise") == ["Y"]
 
-    test_str = "X = N + sqrt(X_45 ** M + 342 * 2) / (  43 * FG_2) + P, N ~ Normal(0,1)"
+    test_str = "X = N + sqrt(X_45 ** M + 342 * 2) / (  43 * FG_2) + P; N ~ Normal(0,1)"
     func_map = parse_assignments([test_str])
     assert func_map["X"][0] == "N + sqrt(X_45 ** M + 342 * 2) / (  43 * FG_2) + P"
     assert str(func_map["X"][1][0]) == "N"
@@ -90,10 +90,10 @@ def test_parsing():
 def test_scm_from_strings():
     scm = SCM(
         [
-            "X = N, N ~ Normal(0,1)",
-            "Y_0 = M + 2 * exp(X), M ~ StudentT(2)",
-            "Y_1 = M + 2 * exp(sqrt(X)), M ~ Normal(0, 0.1)",
-            "Z = P * sqrt(Y_0), P ~ Exponential(5.3)",
+            "X = N; N ~ Normal(0,1)",
+            "Y_0 = M + 2 * exp(X); M ~ StudentT(2)",
+            "Y_1 = M + 2 * exp(sqrt(X)); M ~ Normal(0, 0.1)",
+            "Z = P * sqrt(Y_0); P ~ Exponential(5.3)",
         ]
     )
     assert same_elements(scm.get_variables(), ["X", "Y_0", "Y_1", "Z"])
@@ -311,7 +311,7 @@ def test_reproducibility():
 
 
 def test_none_noise():
-    cn = SCM(["X = 1", "Y = N + X, N ~ Normal(0,1)"], seed=0)
+    cn = SCM(["X = 1", "Y = N + X; N ~ Normal(0,1)"], seed=0)
     n = 10
     sample = cn.sample(n)
     manual_y = np.random.default_rng(0).normal(size=n) + 1
@@ -331,8 +331,8 @@ def test_compositional_noise():
     cn = SCM(
         [
             "X = 1",
-            "Y = N**2 + X, N ~ Normal(0,1)",
-            "Z = T*M + Y, M ~ Exponential(1) / T ~ StudentT(0.5)",
+            "Y = N**2 + X; N ~ Normal(0,1)",
+            "Z = T*M + Y; M ~ Exponential(1) / T ~ StudentT(0.5)",
         ],
         seed=0,
     )
@@ -351,10 +351,10 @@ def test_compositional_noise():
 def test_compositional_noise_intervention():
     cn = SCM(
         [
-            "X = N, N ~ Normal(0,1)",
-            "Y = B**2 + X, B ~ Normal(0,1)",
-            "Z = T*M + Y, M ~ Exponential(1) / T ~ StudentT(0.5)",
-            "V = L + 2 * (X**2), L ~ Normal(0,1)",
+            "X = N; N ~ Normal(0,1)",
+            "Y = B**2 + X; B ~ Normal(0,1)",
+            "Z = T*M + Y; M ~ Exponential(1) / T ~ StudentT(0.5)",
+            "V = L + 2 * (X**2); L ~ Normal(0,1)",
         ],
         seed=0,
     )
@@ -376,8 +376,8 @@ def test_compositional_noise_multi():
     cn = SCM(
         [
             "X = 1",
-            "Y = N**P + X, N ~ Normal(0,1) / P ~ Bernoulli(0.5)",
-            "Z = exp(T) - log(M) * N + Y, M ~ Exponential(1) / T ~ StudentT(0.5) / N ~ Normal(0, 2)",
+            "Y = N**P + X; N ~ Normal(0,1) / P ~ Bernoulli(0.5)",
+            "Z = exp(T) - log(M) * N + Y; M ~ Exponential(1) / T ~ StudentT(0.5) / N ~ Normal(0, 2)",
         ],
         seed=0,
     )

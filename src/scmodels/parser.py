@@ -8,7 +8,9 @@ from typing import *
 
 all_stats_imports = set(sympy.stats.__all__)
 
-var_p = regex.compile(r"(?<=([(]|[)*+-/%]))\w+(?=([)*+-/%]+|$))|^\w+(?=([)*+-/%]+|$))")
+var_p = regex.compile(
+    r"(?<=([(]|[)\*\+\-\/\>\<\%\s,]))\w+(?=([)\*\+\>\<\-\/\%\s,]+|$))|^\w+(?=([)\*\+\-\>\<\/\%\s]+|$))"
+)
 digit_p = regex.compile(r"^\d+$")
 
 
@@ -37,7 +39,7 @@ def parse_assignments(assignment_strs: Sequence[str]):
     for assignment in assignment_strs:
         # split the assignment 'X = f(Parents, Noise), Noise ~ D' into [X, f(Parents, Noise), Noise ~ D]
         assign_var, assignment_n_noise = assignment.split("=", 1)
-        assign_noise_split = assignment_n_noise.split(",", 1)
+        assign_noise_split = assignment_n_noise.split(";", 1)
 
         if len(assign_noise_split) == 1:
             # this is the case when there was no ',' separating functional body and noise distribution specification
