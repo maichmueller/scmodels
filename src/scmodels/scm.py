@@ -825,16 +825,18 @@ class SCM:
         tuple,
             the plt.figure and figure-axis objects holding the graph plot.
         """
-        if nx.is_tree(self.dag):
-            pos = hierarchy_pos(self.dag, root_node=self.roots[0])
-        else:
-            pos = graphviz_layout(self.dag, prog="dot")
+        pos = kwargs.get("pos", None)
+        if pos is None:
+            if nx.is_tree(self.dag):
+                pos = hierarchy_pos(self.dag, root_node=self.roots[0])
+            else:
+                pos = graphviz_layout(self.dag, prog="dot")
         if draw_labels:
             labels = self.var_draw_dict
         else:
             labels = {}
         fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
-        ax.set_title(self.scm_name)
+        ax.set_title(self.name)
         nx.draw(
             self.dag,
             pos=pos,
@@ -847,7 +849,7 @@ class SCM:
         )
         if savepath is not None:
             fig.savefig(savepath)
-        return fig, ax
+        return fig, ax, pos
 
     def get_variables(self, causal_order: bool = True) -> List[str]:
         """
