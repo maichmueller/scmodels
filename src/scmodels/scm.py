@@ -34,7 +34,9 @@ from scmodels.parser import parse_assignments, extract_parents
 
 RV: Type[RandomSymbol] = RandomSymbol
 AssignmentSeq = Sequence[str]
-AssignmentMap = Dict[str, Union[Tuple[str, RV], Tuple[List[str], Callable, RV]]]
+AssignmentMap = Dict[
+    str, Union[Tuple[str, RV], Tuple[Union[Sequence[str], str], Callable, RV]]
+]
 
 
 class Assignment:
@@ -627,7 +629,7 @@ class SCM:
         """
         Returns the moral graph of the underlying DAG.
 
-        The moral graph is the underlying DAG with all edges made undirected and collider parents connected.
+        The moral graph is the underlying DAG with all edges made undirected and v-structure parents connected.
 
         Notes
         -----
@@ -1018,12 +1020,17 @@ def lambdify_assignment(
     for par in parents:
         lcls[par] = sympy.Symbol(par)
         symbols.append(lcls[par])
-    assignment = sympy.sympify(eval(assignment_str))
+    try:
+        assignment = sympy.sympify(eval(assignment_str))
+    except (TypeError, ValueError) as e:
+        raise type(e)(
+            f"Assignment {assignment_str} could not be sympified. Error reads:\n{e}"
+        )
     try:
         assignment = sympy.lambdify(symbols, assignment, "numpy")
     except (NameError, ValueError) as e:
         warnings.warn(
-            f"The assignment string could not be resolved in numpy, the error message reads: {e}\n"
+            f"Assignment string {assignment_str} could not be resolved in numpy, the error message reads: {e}\n"
             f"Lambdifying without numpy.",
         )
         assignment = sympy.lambdify(symbols, assignment)
