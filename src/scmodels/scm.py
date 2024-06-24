@@ -29,6 +29,7 @@ from networkx.drawing.nx_agraph import graphviz_layout
 from sympy.stats import sample, sample_iter, random_symbols
 from sympy.stats.rv import RandomSymbol
 from sympy.functions import *
+from typing import NamedTuple
 
 from scmodels.parser import parse_assignments, extract_parents
 
@@ -98,10 +99,8 @@ class Assignment:
         )
 
 
-@dataclass(frozen=True)
-class ColliderView:
-    parent_left: str
-    parent_right: str
+class ColliderView(NamedTuple):
+    parents: Tuple[str, str]
     child: str
     is_v_structure: Optional[bool] = None
 
@@ -643,13 +642,22 @@ class SCM:
         return nx.moral_graph(self.dag)
 
     def collider_iter(
-        self, only_v_structure: bool = False
+        self, only_v_structure: bool = False, ordered: bool = True
     ) -> Generator[ColliderView, None, None]:
         """
         Provide a generator that yields all colliders of the underlying DAG.
 
-        Colliders are triples of nodes (parent, child, other_parent)
-        in which both parent and other_parent causally affect the child.
+        Colliders are triples of nodes `(parent, child, other_parent)`
+        in which both `parent` and `other_parent` causally affect the `child`.
+
+        Parameters
+        ----------
+        only_v_structure: bool,
+            whether to only return v-structures (colliders whose parents are not adjacent) or all colliders.
+            Default: False.
+        ordered: bool,
+            whether to order the parents of the collider by their positional index in the child's assignment.
+            Default: True.
 
         Returns
         -------
@@ -661,10 +669,13 @@ class SCM:
             adj_parents = dag.has_edge(par1, par2) or dag.has_edge(par2, par1)
             if adj_parents and only_v_structure:
                 continue
-            ordered_parents = self._order_parents_by_arg_index(
-                self.get_variable_args(child), (par1, par2)
-            )
-            yield ColliderView(*ordered_parents, child, is_v_structure=not adj_parents)
+            if ordered:
+                parents = self._order_parents_by_arg_index(
+                    self.get_variable_args(child), (par1, par2)
+                )
+            else:
+                parents = (par1, par2)
+            yield ColliderView(parents, child, is_v_structure=not adj_parents)
 
     def is_dag(self):
         """

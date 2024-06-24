@@ -415,7 +415,7 @@ def test_collider_iter():
         ]
     )
     colliders = list(cn.collider_iter())
-    collider_tuples = [(c.parent_left, c.parent_right, c.child) for c in colliders]
+    collider_tuples = [(*c.parents, c.child) for c in colliders]
     assert len(colliders) == 6
     assert ("X", "Y", "Z") in collider_tuples
     assert ("Y", "Z", "A") in collider_tuples
@@ -425,7 +425,7 @@ def test_collider_iter():
     assert ("A", "B", "C") in collider_tuples
 
     colliders = list(cn.collider_iter(True))
-    collider_tuples = [(c.parent_left, c.parent_right, c.child) for c in colliders]
+    collider_tuples = [(*c.parents, c.child) for c in colliders]
     assert len(colliders) == 2
     assert ("X", "Y", "Z") in collider_tuples
     assert ("Y", "Z", "A") not in collider_tuples
