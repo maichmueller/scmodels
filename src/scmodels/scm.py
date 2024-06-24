@@ -3,7 +3,7 @@ import warnings
 from collections import deque, defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
-from itertools import repeat
+from itertools import repeat, combinations
 from typing import (
     List,
     Union,
@@ -298,6 +298,9 @@ class SCM:
                 line += f"\t [ " f"{', '.join(noise_definitions)}" f" ]"
             lines.append(line)
         return "\n".join(lines)
+
+    def undirected_graph(self):
+        return self.dag.to_undirected()
 
     def sample(
         self,
@@ -676,6 +679,111 @@ class SCM:
             else:
                 parents = (par1, par2)
             yield ColliderView(parents, child, is_v_structure=not adj_parents)
+
+    def backdoor_iter(
+        self,
+        x: Union[str, Sequence[str]],
+        y: Union[str, Sequence[str]],
+        s: Optional[Union[str, Sequence[str]]] = None,
+        skip_disjoin_check: bool = False,
+    ) -> Generator[List[str], None, None]:
+        """
+        Provide a generator that yields all possible backdoor paths for the given pair (X, Y) of
+        source X and target Y variables given the adjustment variables in S.
+
+        Parameters
+        ----------
+        x: str | Sequence[str],
+            the set of source variables whose backdoors we attempt to find.
+        y: str | Sequence[str],
+            the target variables for the set of variables 'x'.
+        s: str | Sequence[str] | None,
+            an optional set of variables we consider to condition on.
+        skip_disjoin_check: bool,
+            whether to skip the check for disjoint sets X, Y, and S.
+
+        Returns
+        -------
+        Generator[List[str], None, None],
+            the backdoor paths found.
+        """
+        if isinstance(x, str):
+            x = (x,)
+        if isinstance(y, str):
+            y = (y,)
+        if s is None:
+            s = ()
+        if isinstance(s, str):
+            s = (s,)
+        if not skip_disjoin_check:
+            # check if there is an intersection between the three variable sequences
+            for (a, name_a), (b, name_b) in combinations(
+                ((set(x), "X"), (set(y), "Y"), (set(s), "S")), 2
+            ):
+                intersection = a & b
+                if intersection:
+                    raise ValueError(
+                        f"{name_a}, and {name_b} must be disjoint sets. Intersection: ",
+                        intersection,
+                    )
+
+        undirected_graph = self.undirected_graph()
+        colliders = list(self.collider_iter(only_v_structure=True, ordered=False))
+        if s is not None or bool(s):
+            if isinstance(s, str):
+                s = (s,)
+            for collider in colliders:
+                if any(collider.child == var for var in s):
+                    undirected_graph.add_edge(*collider.parents)
+            for var in s:
+                # remove the blocked nodes from the graph, no path can travel through them anymore
+                undirected_graph.remove_node(var)
+
+        for start in x:
+            for edge in self.dag.out_edges(start):
+                # S needs to block all backdoor paths. Such paths start atlways from _parent_ of X.
+                undirected_graph.remove_edge(*edge)
+        for start in x:
+            for path in nx.all_simple_paths(undirected_graph, source=start, target=y):
+                if len(path) < 3:
+                    # a path of length 2 cannot be any other than a direct edge between source and target
+                    continue
+                # check if along the found path we encounter a triplet that is actually a collider
+                # (hence naturally blocked)
+                if any(
+                    node2 == collider.child
+                    and node1 in collider.parents
+                    and node3 in collider.parents
+                    for (node1, node2, node3) in zip(path, path[1:], path[2:])
+                    for collider in colliders
+                ):
+                    continue
+                yield path
+
+    def backdoor_criterion(self, x: Sequence[str], y: Sequence[str], s: Sequence[str]):
+        """
+        Check whether the backdoor criterion is fulfilled for pair (X, Y) and backdoor blocking variables in S.
+
+        Parameters
+        ----------
+        x: Sequence[str],
+            the list of source variables whose backdoors we attempt to find.
+        y: Sequence[str],
+            the target variables for the variables in 'x'.
+        s: Sequence[str],
+            the variables we condition on to adjust for the causal effect.
+
+        Returns
+        -------
+        bool,
+            a boolean indicating whether the backdoor criterion is fulfilled.
+        """
+
+        for source in x:
+            descendants = nx.descendants(self.undirected_graph, source)
+            if any(conditioned_var in descendants for conditioned_var in s):
+                return False
+        return all(False for _ in self.backdoor_iter(x, y, s))
 
     def is_dag(self):
         """

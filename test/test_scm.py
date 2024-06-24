@@ -433,3 +433,37 @@ def test_collider_iter():
     assert ("X", "A", "B") in collider_tuples
     assert ("Z", "A", "B") not in collider_tuples
     assert ("A", "B", "C") not in collider_tuples
+
+
+def test_backdoor_iter():
+    assignments = {
+        "S": ("N_a", FiniteRV("N_a", density={0: 0.48, 1: 0.52})),
+        "H": (
+            "F_h",
+            Normal("F_h", mean=1.70, std=0.071),
+        ),
+        "P": ("N_p * (1-2*S) * sqrt(H)", Normal("N_p", mean=2, std=1)),
+        "X": ("tanh(P ** (S + N_x))", Bernoulli("N_x", 0.5)),
+        "Y": (
+            ["X", "H", "P"],
+            lambda o, x, h, p: np.sign(x * h * p) * o,
+            Bernoulli("O", 0.5),
+        ),
+    }
+    cn = SCM(assignments)
+    # without blocking anything there are 3 paths:
+    # X -> S -> P -> Y,
+    # X -> P -> Y,
+    # X -> P -> H -> Y
+    paths = list(cn.backdoor_iter("X", "Y", None))
+    assert len(paths) == 3
+    paths = list(cn.backdoor_iter("X", "Y", ["P"]))
+    assert len(paths) == 1
+    paths = list(cn.backdoor_iter("X", "Y", ["P", "H"]))
+    assert len(paths) == 0
+    paths = list(cn.backdoor_iter("X", "Y", ["P", "S"]))
+    assert len(paths) == 0
+    pytest.raises(ValueError, list, cn.backdoor_iter("X", "Y", ["P", "Y"]))
+    pytest.raises(ValueError, list, cn.backdoor_iter("X", "Y", ["Y"]))
+    pytest.raises(ValueError, list, cn.backdoor_iter("X", "Y", ["X"]))
+    pytest.raises(ValueError, list, cn.backdoor_iter("X", "Y", ["X", "Y"]))
