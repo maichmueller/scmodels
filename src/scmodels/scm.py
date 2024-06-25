@@ -645,7 +645,10 @@ class SCM:
         return nx.moral_graph(self.dag)
 
     def collider_iter(
-        self, only_v_structure: bool = False, ordered: bool = True
+        self,
+        dag: Optional[None] = None,
+        only_v_structure: bool = False,
+        ordered: bool = True,
     ) -> Generator[ColliderView, None, None]:
         """
         Provide a generator that yields all colliders of the underlying DAG.
@@ -655,6 +658,8 @@ class SCM:
 
         Parameters
         ----------
+        dag: nx.DiGraph,
+            the directed acyclic graph to consider. If None, the internal DAG is used.
         only_v_structure: bool,
             whether to only return v-structures (colliders whose parents are not adjacent) or all colliders.
             Default: False.
@@ -667,7 +672,8 @@ class SCM:
         Generator[ColliderView, None, None],
             the colliders/v-structures found
         """
-        dag = self.dag
+        if dag is None:
+            dag = self.dag
         for par1, child, par2 in nx.compute_v_structures(dag):
             adj_parents = dag.has_edge(par1, par2) or dag.has_edge(par2, par1)
             if adj_parents and only_v_structure:
@@ -682,43 +688,48 @@ class SCM:
 
     def backdoor_iter(
         self,
-        x: Union[str, Sequence[str]],
-        y: Union[str, Sequence[str]],
-        s: Optional[Union[str, Sequence[str]]] = None,
-        skip_disjoin_check: bool = False,
+        source_vars: Union[str, Sequence[str]],
+        target_vars: Union[str, Sequence[str]],
+        control_vars: Optional[Union[str, Sequence[str]]] = None,
+        skip_disjoint_check: bool = False,
     ) -> Generator[List[str], None, None]:
         """
-        Provide a generator that yields all possible backdoor paths for the given pair (X, Y) of
-        source X and target Y variables given the adjustment variables in S.
+        Provide a generator that yields all possible backdoor paths for the given pair `(X, Y)` of
+        source `X` and target `Y` variables given the adjustment variables in `Z`.
 
         Parameters
         ----------
-        x: str | Sequence[str],
-            the set of source variables whose backdoors we attempt to find.
-        y: str | Sequence[str],
-            the target variables for the set of variables 'x'.
-        s: str | Sequence[str] | None,
+        source_vars: str | Sequence[str],
+            the set of source variables (`X`) whose backdoors we attempt to find.
+        target_vars: str | Sequence[str],
+            the target variables (`Y`) for the set of variables `X`.
+        control_vars: str | Sequence[str] | None,
             an optional set of variables we consider to condition on.
-        skip_disjoin_check: bool,
-            whether to skip the check for disjoint sets X, Y, and S.
+        skip_disjoint_check: bool,
+            whether to skip the check for disjoint sets `X`, `Y`, and `Z`.
 
         Returns
         -------
         Generator[List[str], None, None],
             the backdoor paths found.
         """
-        if isinstance(x, str):
-            x = (x,)
-        if isinstance(y, str):
-            y = (y,)
-        if s is None:
-            s = ()
-        if isinstance(s, str):
-            s = (s,)
-        if not skip_disjoin_check:
+        if isinstance(source_vars, str):
+            source_vars = (source_vars,)
+        if isinstance(target_vars, str):
+            target_vars = (target_vars,)
+        if control_vars is None:
+            control_vars = ()
+        if isinstance(control_vars, str):
+            control_vars = (control_vars,)
+        if not skip_disjoint_check:
             # check if there is an intersection between the three variable sequences
             for (a, name_a), (b, name_b) in combinations(
-                ((set(x), "X"), (set(y), "Y"), (set(s), "S")), 2
+                (
+                    (set(source_vars), "X"),
+                    (set(target_vars), "Y"),
+                    (set(control_vars), "S"),
+                ),
+                2,
             ):
                 intersection = a & b
                 if intersection:
@@ -729,22 +740,24 @@ class SCM:
 
         undirected_graph = self.undirected_graph()
         colliders = list(self.collider_iter(only_v_structure=True, ordered=False))
-        if s is not None or bool(s):
-            if isinstance(s, str):
-                s = (s,)
+        if control_vars is not None or bool(control_vars):
+            if isinstance(control_vars, str):
+                control_vars = (control_vars,)
             for collider in colliders:
-                if any(collider.child == var for var in s):
+                if any(collider.child == var for var in control_vars):
                     undirected_graph.add_edge(*collider.parents)
-            for var in s:
+            for var in control_vars:
                 # remove the blocked nodes from the graph, no path can travel through them anymore
                 undirected_graph.remove_node(var)
 
-        for start in x:
+        for start in source_vars:
             for edge in self.dag.out_edges(start):
                 # S needs to block all backdoor paths. Such paths start atlways from _parent_ of X.
                 undirected_graph.remove_edge(*edge)
-        for start in x:
-            for path in nx.all_simple_paths(undirected_graph, source=start, target=y):
+        for start in source_vars:
+            for path in nx.all_simple_paths(
+                undirected_graph, source=start, target=target_vars
+            ):
                 if len(path) < 3:
                     # a path of length 2 cannot be any other than a direct edge between source and target
                     continue
@@ -760,17 +773,23 @@ class SCM:
                     continue
                 yield path
 
-    def backdoor_criterion(self, x: Sequence[str], y: Sequence[str], s: Sequence[str]):
+    def backdoor_criterion(
+        self,
+        source_vars: Sequence[str],
+        target_vars: Sequence[str],
+        control_vars: Sequence[str],
+    ):
         """
-        Check whether the backdoor criterion is fulfilled for pair (X, Y) and backdoor blocking variables in S.
+        Check whether the backdoor criterion is fulfilled for pair `(X, Y)`
+        and backdoor blocking contrtol variables in `Z`.
 
         Parameters
         ----------
-        x: Sequence[str],
-            the list of source variables whose backdoors we attempt to find.
-        y: Sequence[str],
-            the target variables for the variables in 'x'.
-        s: Sequence[str],
+        source_vars: Sequence[str],
+            the list of source variables (`X`) whose backdoors we attempt to find.
+        target_vars: Sequence[str],
+            the target variables (`Y`) for the variables in `X`.
+        control_vars: Sequence[str],
             the variables we condition on to adjust for the causal effect.
 
         Returns
@@ -778,12 +797,74 @@ class SCM:
         bool,
             a boolean indicating whether the backdoor criterion is fulfilled.
         """
-
-        for source in x:
+        x_set = set(source_vars)
+        for source in source_vars:
             descendants = nx.descendants(self.undirected_graph, source)
-            if any(conditioned_var in descendants for conditioned_var in s):
+            # remove any source variable from the descendants set
+            descendants -= x_set
+            # if we condition on any of the descendants, then the backdoor criterion is not fulfilled by S
+            if any(conditioned_var in descendants for conditioned_var in control_vars):
                 return False
-        return all(False for _ in self.backdoor_iter(x, y, s))
+        return any(
+            True for _ in self.backdoor_iter(source_vars, target_vars, control_vars)
+        )
+
+    def frontdoor_criterion(
+        self,
+        source_vars: Sequence[str],
+        target_vars: Sequence[str],
+        mediator_vars: Sequence[str],
+    ):
+        """
+        Check whether the frontdoor criterion is fulfilled for pair `(X, Y)` and mediator variables `Z`.
+
+        Parameters
+        ----------
+        source_vars: Sequence[str],
+            the list of source variables (`X`) whose causal effect we try to quantify.
+        target_vars: Sequence[str],
+            the target variables (`Y`) for the variables in `X`.
+        mediator_vars: Sequence[str],
+            the mediator variables (`Z`) for the variables in `X`.
+
+        Returns
+        -------
+        bool,
+            a boolean indicating whether the frontdoor criterion is fulfilled.
+        """
+        dag_copy = self.dag.copy()
+
+        for mediator in mediator_vars:
+            # remove the mediator from the graph
+            dag_copy.remove_node(mediator)
+        # 1. Ensure the mediating variables block all paths from source to target
+        for source in source_vars:
+            for target in target_vars:
+                # check if there is a directed path from source to target
+                if nx.has_path(dag_copy, source, target):
+                    return False
+        # 2. Ensure that the there is no backdoor from source to mediator
+        if any(
+            True
+            for _ in self.backdoor_iter(
+                source_vars=source_vars,
+                target_vars=mediator_vars,
+                skip_disjoint_check=False,
+            )
+        ):
+            return False
+        # 3. Ensure that all backdoor paths from mediator to target are blocked by the source variables
+        if any(
+            True
+            for _ in self.backdoor_iter(
+                source_vars=mediator_vars,
+                target_vars=target_vars,
+                control_vars=source_vars,
+                skip_disjoint_check=True,
+            )
+        ):
+            return False
+        return True
 
     def is_dag(self):
         """

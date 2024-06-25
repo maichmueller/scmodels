@@ -424,7 +424,7 @@ def test_collider_iter():
     assert ("Z", "A", "B") in collider_tuples
     assert ("A", "B", "C") in collider_tuples
 
-    colliders = list(cn.collider_iter(True))
+    colliders = list(cn.collider_iter(only_v_structure=True))
     collider_tuples = [(*c.parents, c.child) for c in colliders]
     assert len(colliders) == 2
     assert ("X", "Y", "Z") in collider_tuples
